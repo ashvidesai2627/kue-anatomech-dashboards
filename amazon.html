@@ -627,7 +627,17 @@ buildTable(document.getElementById('tblDaily'), dailyCols, DATA.daily);
 const weeklyCols = ['Week','Orders','Gross Sales (Rs)','Net Payout (Rs)','Avg Daily Net Payout (Rs)','Return Rate %','Avg Order Value (Rs)'].map(k=>({
   key:k, label:k.replace(' (Rs)',''), render: (k.includes('Rs')) ? (r=>fmtRs(r[k])) : (k.includes('%') ? (r=>fmtPct(r[k])) : undefined)
 }));
+weeklyCols.push({key:'Ad Spend', label:'Ad Spend (Rs)', render: ()=>'<span title="Ad spend is not broken down by week in Amazon Ads reporting — see period-level ACOS/ROI below">NA</span>'});
+weeklyCols.push({key:'ACOS', label:'ACOS %', render: ()=>'<span title="ACOS is not broken down by week — see period-level ACOS/ROI below">NA</span>'});
+weeklyCols.push({key:'ROI', label:'ROI', render: ()=>'<span title="ROI is not broken down by week — see period-level ACOS/ROI below">NA</span>'});
 buildTable(document.getElementById('tblWeekly'), weeklyCols, DATA.weekly);
+const periodAcos = (DATA.summary.total_ad_cost_sku/DATA.summary.total_sales_sku*100).toFixed(2);
+const periodRoi = (DATA.summary.total_sales_sku/DATA.summary.total_ad_cost_sku).toFixed(2);
+const adPerfNote = document.createElement('div');
+adPerfNote.className = 'desc';
+adPerfNote.style.marginTop = '8px';
+adPerfNote.innerHTML = `<b>Period-level Ad Performance (1-27 Jul):</b> Ad Spend ₹${fmt(DATA.summary.total_ad_cost_sku)} · Attributed Sales ₹${fmt(DATA.summary.total_sales_sku)} · ACOS ${periodAcos}% · ROI ${periodRoi}x. Sourced from the SKU-level Ad Spend report (Advertising &gt; Campaign Manager). Not split by week because Amazon Ads reporting does not expose a daily/weekly spend breakdown per SKU in this export — hence NA in the weekly table above.`;
+document.getElementById('tblWeekly').parentElement.appendChild(adPerfNote);
 
 // ---------- Suggestions ----------
 const biz = [];
