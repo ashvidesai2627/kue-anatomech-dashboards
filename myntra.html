@@ -57,6 +57,21 @@
   footer{text-align:center;color:var(--muted);font-size:11.5px;padding:20px;}
   .critical-banner{background:linear-gradient(180deg,#2a1218,#171e2e);border:1px solid #5c2430;border-radius:12px;padding:18px 20px;margin-bottom:20px;}
   .critical-banner h2{margin:0 0 8px;font-size:16px;color:var(--bad);}
+  .kpi .why{margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);font-size:10.8px;line-height:1.4;color:#a9b3c7;}
+  .kpi .why .tag{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.04em;padding:1px 6px;border-radius:4px;margin-right:5px;vertical-align:1px;}
+  .tag.LOW{background:rgba(255,93,108,.18);color:var(--bad);}
+  .tag.HIGH{background:rgba(255,93,108,.18);color:var(--bad);}
+  .tag.GOOD{background:rgba(61,220,151,.18);color:var(--good);}
+  .tag.NORMAL{background:rgba(147,160,184,.18);color:var(--muted);}
+  .why-row{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #232b3d;}
+  .why-row:last-child{border-bottom:none;}
+  .why-row .why-metric{flex:0 0 220px;font-size:13px;font-weight:700;}
+  .why-row .why-text{flex:1;font-size:13px;line-height:1.55;color:#cfd6e4;}
+  .why-row .why-text b{color:var(--text);}
+  .compare-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;}
+  .compare-table th{text-align:left;padding:8px 10px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);}
+  .compare-table td{padding:8px 10px;border-bottom:1px solid #232b3d;}
+  .compare-table tr.myntra-row td{color:var(--accent);font-weight:700;}
 </style>
 </head>
 <body>
@@ -89,6 +104,28 @@
       <div id="criticalBody" style="font-size:13.5px;line-height:1.6;color:#f0d0d5;"></div>
     </div>
     <div class="kpi-grid" id="kpiGrid"></div>
+
+    <div class="panel">
+      <h2>Why is each number high or low?</h2>
+      <div class="desc">Every KPI above, tagged LOW / HIGH / NORMAL / GOOD, with the specific reason behind it — not just the number.</div>
+      <div id="whyList"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Cross-platform context — same period, same brand</h2>
+      <div class="desc">How Myntra's order volume compares to Anatomech's other channels this month. Definitions differ slightly by platform (footnoted) but each is that platform's own headline volume metric.</div>
+      <table class="compare-table">
+        <thead><tr><th>Platform</th><th>Period</th><th>Order volume</th><th>Gross value</th></tr></thead>
+        <tbody>
+          <tr><td>Amazon.in</td><td>1–27 Jul</td><td>505 orders</td><td>₹2,78,530</td></tr>
+          <tr><td>Flipkart</td><td>1–24 Jul</td><td>350 units sold¹</td><td>₹1,32,978</td></tr>
+          <tr><td>Shopify (D2C)</td><td>1–26 Jul</td><td>42 orders</td><td>₹47,332</td></tr>
+          <tr class="myntra-row"><td>Myntra</td><td>1–27 Jul</td><td>6 order lines</td><td>₹10,394</td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:10.5px;color:var(--muted);margin-top:8px;">¹ Flipkart's headline KPI is units sold, not distinct orders — not a like-for-like count with the others, but still the clearest available signal that Myntra's volume this month is far outside the range of Anatomech's other channels.</div>
+    </div>
+
     <div class="panel">
       <h2>What's going right / What needs attention</h2>
       <div class="grid2">
@@ -790,21 +827,40 @@ function renderDashboard(){
   const totalOnHand = inventory.reduce((s,i)=>s+i.onhand,0);
 
   const kpis = [
-    ['Total Order Lines', orders.length, ''],
-    ['Delivered', nDelivered, ''],
-    ['Cancelled', nCancelled, ''],
-    ['Packed / In-Transit', nTransit, ''],
-    ['Gross Order Value', fmt(grossVal), ''],
-    ['Net Order Value (excl. cancelled)', fmt(netVal), ''],
-    ['Total Settled', fmt2(totalSettled), 'bad'],
-    ['Overdue Unsettled', fmt2(overdueAmt), 'bad'],
-    ['Pending (not yet due)', fmt2(notyetdueAmt), 'warn'],
-    ['Return / RTO Count', returns.length, ''],
-    ['SKUs w/ Zero Sellable Stock', nSellableZero + ' / ' + inventory.length, 'bad'],
-    ['Total Units On Hand', totalOnHand.toLocaleString('en-IN'), ''],
+    ['Total Order Lines', orders.length, '', 'LOW',
+      `Only ${orders.length} order lines all month vs. 505 orders on Amazon and 42 on Shopify in the same window (see comparison table below). Root cause: 0 of ${inventory.length} SKUs are marked sellable on Myntra, so almost nothing in the catalog can actually be added to a customer's cart.`],
+    ['Delivered', nDelivered, '', 'NORMAL',
+      `${nDelivered} of ${orders.length} order lines were fulfilled cleanly with zero delivery or quality complaints — when an order does get placed, the fulfillment side works fine.`],
+    ['Cancelled', nCancelled, '', 'NORMAL',
+      `${nCancelled} of ${orders.length} cancelled, both for the identical reason — a COD cash-issue on the customer's side, both from orders placed the same day (8-Jul). A contained, one-off pattern, not a listing or pricing problem.`],
+    ['Packed / In-Transit', nTransit, '', 'NORMAL',
+      `1 order still moving through the fulfillment pipeline as of the data pull — normal, not stuck.`],
+    ['Gross Order Value', fmt(grossVal), '', 'LOW',
+      `${fmt(grossVal)} for the whole month vs. ₹2.78L (Amazon), ₹1.33L (Flipkart), ₹47K (Shopify) in the same period. Same root cause as order count — near-zero sellable inventory suppresses demand before it can even reach checkout.`],
+    ['Net Order Value (excl. cancelled)', fmt(netVal), '', 'LOW',
+      `${fmt(netVal)} after removing the 2 cancelled lines (${fmt(cancelledVal)}) — low for the same structural reason as gross value, not because of unusually high cancellations.`],
+    ['Total Settled', fmt2(totalSettled), 'bad', 'BAD',
+      `₹0.00 paid out this month. This isn't simply "payment not due yet" — 3 of the 4 delivered orders are past their due date specifically because the account is flagged "Seller is disabled" (see red banner).`],
+    ['Overdue Unsettled', fmt2(overdueAmt), 'bad', 'HIGH',
+      `${fmt2(overdueAmt)} should be ₹0 under Myntra's normal 15-day settlement cycle. Every rupee here is being withheld by the account-status flag, not by routine payment processing delay.`],
+    ['Pending (not yet due)', fmt2(notyetdueAmt), 'warn', 'NORMAL',
+      `${fmt2(notyetdueAmt)} not yet due (settles 4-Aug) — normal for now, but on track to join the overdue bucket too unless the underlying account flag is cleared before then.`],
+    ['Return / RTO Count', returns.length, '', 'GOOD',
+      `Just 1 RTO, and it belongs to an order placed back in June, not to any of this month's own order lines — no return pattern within July's orders.`],
+    ['SKUs w/ Zero Sellable Stock', nSellableZero + ' / ' + inventory.length, 'bad', 'HIGH',
+      `100% of the active catalog. This is almost certainly the single root cause behind every "LOW" number above — it is an account-status block, not a warehousing problem (see next KPI).`],
+    ['Total Units On Hand', totalOnHand.toLocaleString('en-IN'), '', 'GOOD',
+      `${totalOnHand.toLocaleString('en-IN')} physical units in stock — confirms the low sales are not due to running out of product. There is plenty of inventory sitting un-sellable, not unavailable.`],
   ];
   document.getElementById('kpiGrid').innerHTML = kpis.map(([label,val,cls])=>`
     <div class="kpi"><div class="label">${label}</div><div class="value ${cls}">${val}</div></div>
+  `).join('');
+
+  document.getElementById('whyList').innerHTML = kpis.map(([label,val,cls,tag,why])=>`
+    <div class="why-row">
+      <div class="why-metric">${label}<div style="font-weight:400;font-size:12px;color:var(--muted);margin-top:2px;">${val}</div></div>
+      <div class="why-text"><span class="tag ${tag}">${tag}</span>${why}</div>
+    </div>
   `).join('');
 
   document.getElementById('criticalBody').innerHTML = `
