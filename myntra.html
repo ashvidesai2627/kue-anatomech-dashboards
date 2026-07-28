@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KUE / Anatomech — Myntra Sales Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#171e2e; --panel2:#1d2536; --border:#2a3348;
+    --text:#e8ecf5; --muted:#93a0b8; --accent:#ff3f6c; --accent2:#ff9f00;
+    --good:#3ddc97; --warn:#ffb454; --bad:#ff5d6c;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:24px 32px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:50;}
+  header h1{margin:0 0 4px;font-size:22px;font-weight:700;}
+  header .sub{color:var(--muted);font-size:13px;}
+  nav{display:flex;gap:6px;padding:14px 32px 0;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:96px;z-index:49;}
+  nav button{background:none;border:none;color:var(--muted);padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;transition:.15s;white-space:nowrap;}
+  nav button:hover{color:var(--text);}
+  nav button.active{color:var(--accent);border-bottom-color:var(--accent);}
+  main{padding:24px 32px 60px;max-width:1500px;margin:0 auto;}
+  .tab{display:none;}
+  .tab.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:24px;}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+  .kpi .label{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+  .kpi .value{font-size:22px;font-weight:700;}
+  .kpi .value.good{color:var(--good);}
+  .kpi .value.bad{color:var(--bad);}
+  .kpi .value.warn{color:var(--warn);}
+  .kpi .note{font-size:11px;color:var(--muted);margin-top:4px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:20px;}
+  .panel h2{margin:0 0 4px;font-size:15px;}
+  .panel .desc{color:var(--muted);font-size:12.5px;margin-bottom:14px;}
+  .grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+  @media(max-width:1000px){.grid2,.grid3{grid-template-columns:1fr;}}
+  canvas{max-width:100%;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{text-align:left;padding:8px 10px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;background:var(--panel2);}
+  td{padding:7px 10px;border-bottom:1px solid #232b3d;white-space:nowrap;}
+  tr:hover td{background:#1b2436;}
+  .table-wrap{max-height:520px;overflow:auto;border-radius:8px;border:1px solid var(--border);}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+  .badge.red{background:rgba(255,93,108,.18);color:var(--bad);}
+  .badge.yellow{background:rgba(255,180,84,.18);color:var(--warn);}
+  .badge.green{background:rgba(61,220,151,.18);color:var(--good);}
+  .neg{color:var(--bad);}
+  .pos{color:var(--good);}
+  ul.insight{margin:0;padding-left:18px;}
+  ul.insight li{margin-bottom:10px;font-size:13.5px;line-height:1.5;color:#cfd6e4;}
+  ul.insight li b{color:var(--text);}
+  footer{text-align:center;color:var(--muted);font-size:11.5px;padding:20px;}
+  .critical-banner{background:linear-gradient(180deg,#2a1218,#171e2e);border:1px solid #5c2430;border-radius:12px;padding:18px 20px;margin-bottom:20px;}
+  .critical-banner h2{margin:0 0 8px;font-size:16px;color:var(--bad);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>KUE / Anatomech — Myntra Sales Performance Dashboard</h1>
+  <div class="sub" id="periodLine">Loading…</div>
+  <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button id="loadWorkbookBtn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;">&#128193; Load Workbook (.xlsx)</button>
+    <input type="file" id="workbookFileInput" accept=".xlsx" style="display:none;">
+    <span id="loadStatus" style="font-size:11.5px;color:var(--muted);"></span>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-top:4px;">This dashboard reflects a real, very low-volume seller account with an active payout-blocking issue — see the red banner below before reading the numbers.</div>
+</header>
+
+<nav id="tabs">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="orders">Orders</button>
+  <button data-tab="settlement">Settlement</button>
+  <button data-tab="cancelreturn">Cancellations &amp; Returns</button>
+  <button data-tab="inventory">Inventory</button>
+  <button data-tab="notes">Data Notes</button>
+</nav>
+
+<main>
+
+  <section class="tab active" id="tab-overview">
+    <div class="critical-banner">
+      <h2>⚠ CRITICAL — Seller account flagged "Seller is disabled"</h2>
+      <div id="criticalBody" style="font-size:13.5px;line-height:1.6;color:#f0d0d5;"></div>
+    </div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="panel">
+      <h2>What's going right / What needs attention</h2>
+      <div class="grid2">
+        <div>
+          <h3 style="color:var(--good);font-size:13px;margin:0 0 8px;">✓ GOING RIGHT</h3>
+          <ul class="insight" id="goingRight"></ul>
+        </div>
+        <div>
+          <h3 style="color:var(--bad);font-size:13px;margin:0 0 8px;">⚠ NEEDS ATTENTION</h3>
+          <ul class="insight" id="needsAttention"></ul>
+        </div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Order Value by Status</h2>
+        <div class="desc">Customer-paid amount, 6 order lines placed 1–27 Jul 2026</div>
+        <canvas id="chartOrderStatus" height="260"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Settlement Status (₹)</h2>
+        <div class="desc">Settled vs. overdue-unsettled vs. pending, across all delivered orders touching July</div>
+        <canvas id="chartSettlement" height="260"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-orders">
+    <div class="panel">
+      <h2>Order Lines — 1 to 27 Jul 2026</h2>
+      <div class="desc">Source: MDirect_Orders_Report, downloaded from Reports &gt; Operational Reports</div>
+      <div class="table-wrap"><table id="tblOrders"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-settlement">
+    <div class="panel">
+      <h2>Settlement / Payment Detail</h2>
+      <div class="desc">Source: emailed Payment Details "Report" export (6 rows) + 1 order found only on the live Payment Details page (created 30-Jun, outside the export windows)</div>
+      <div class="table-wrap"><table id="tblSettlement"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-cancelreturn">
+    <div class="grid2">
+      <div class="panel">
+        <h2>Cancellations</h2>
+        <div class="desc">Source: MDirect_Cancellation_Report</div>
+        <div class="table-wrap"><table id="tblCancel"></table></div>
+      </div>
+      <div class="panel">
+        <h2>Returns / RTO</h2>
+        <div class="desc">Source: MDirect_Returns_Report</div>
+        <div class="table-wrap"><table id="tblReturns"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-inventory">
+    <div class="panel">
+      <h2>Inventory Snapshot — 54 Active SKUs</h2>
+      <div class="desc">Source: MDirect_Inventory_Report (current snapshot, no date range)</div>
+      <canvas id="chartInventory" height="200"></canvas>
+      <div class="table-wrap" style="margin-top:14px;"><table id="tblInventory"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-notes">
+    <div class="panel">
+      <h2>Data Notes</h2>
+      <ul class="insight">
+        <li><b>Sources:</b> Myntra Partner Portal (partners.myntrainfo.com) — Operational Reports (Orders/Returns/Cancellation/Inventory CSVs) and Payment &gt; Financial Reports &gt; Payment Details (emailed settlement export + live on-screen table), all pulled 28-Jul-2026, read-only.</li>
+        <li><b>Triple verification:</b> (1) Orders report cross-checked against Cancellation report — the 2 cancelled order line IDs match exactly. (2) Orders report cross-checked against the emailed settlement export — order IDs, dates, MRP and discount match exactly across the two independently-generated files. (3) The live Payment Details page was manually paginated and cross-checked against both CSVs, which is also how the 7th order (11255892305) and the "Seller is disabled" delay reason were found — the delay reason was independently re-confirmed on a second, separate page load before being written up.</li>
+        <li><b>Very low order volume (6 order lines, ~₹10.4K gross for the whole month) is real</b>, not a broken report — it's consistent with the Business Growth Dashboard's own GMV figure (~₹6,431 for the Jul-Sep quarter) and is most likely explained by the account-disabled / zero-sellable-inventory issue described in the red banner above.</li>
+        <li>This dashboard does not cover Myntra Ads (not explored this run) or independently recompute Myntra's commission/logistics fee rates.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer>Generated 28-Jul-2026 from Myntra Partner Portal exports. Click "Load Workbook" above to refresh from the latest Myntra_Sales_Performance_Report xlsx.</footer>
+
+<script>
+let DATA = {
+ "orders": [
+  {
+   "id": "11271401264",
+   "release": "100216671802",
+   "status": "Cancelled",
+   "sku": "BBAS_L/XL",
+   "style": "KUE Men Set Of 2 Compression Arm Support Sleeves",
+   "size": "L",
+   "created": "2026-07-08",
+   "delivered": null,
+   "cancelled": "2026-07-09",
+   "reason": "Cash Issue",
+   "mrp": 1999.0,
+   "discount": 100.0,
+   "final": 1899.0,
+   "sellerPrice": 1704.0,
+   "city": "New Delhi",
+   "state": "DL"
+  },
+  {
+   "id": "11286365737",
+   "release": "100231636018",
+   "status": "Delivered",
+   "sku": "TKC_M",
+   "style": "KUE Compression Support Knee Cap",
+   "size": "M",
+   "created": "2026-07-17",
+   "delivered": "2026-07-25",
+   "cancelled": null,
+   "reason": "",
+   "mrp": 1499.0,
+   "discount": 100.0,
+   "final": 1399.0,
+   "sellerPrice": 1204.0,
+   "city": "Barpeta",
+   "state": "AS"
+  },
+  {
+   "id": "11271401254",
+   "release": "100216671792",
+   "status": "Delivered",
+   "sku": "BCS_S/M",
+   "style": "KUE Calf Support Sports Sleeve",
+   "size": "S",
+   "created": "2026-07-08",
+   "delivered": "2026-07-14",
+   "cancelled": null,
+   "reason": "",
+   "mrp": 1999.0,
+   "discount": 100.0,
+   "final": 1899.0,
+   "sellerPrice": 1704.0,
+   "city": "New Delhi",
+   "state": "DL"
+  },
+  {
+   "id": "11294999248",
+   "release": "100240269250",
+   "status": "Packed/In-Transit",
+   "sku": "TKC_XL",
+   "style": "KUE Compression Support Knee Cap",
+   "size": "XL",
+   "created": "2026-07-22",
+   "delivered": null,
+   "cancelled": null,
+   "reason": "",
+   "mrp": 1499.0,
+   "discount": 100.0,
+   "final": 1399.0,
+   "sellerPrice": 1204.0,
+   "city": "Pune",
+   "state": "MH"
+  },
+  {
+   "id": "11271401251",
+   "release": "100216671789",
+   "status": "Delivered",
+   "sku": "BBAS_S/M",
+   "style": "KUE Set Of 2 Men Compression Arm Support Sleeves",
+   "size": "S",
+   "created": "2026-07-08",
+   "delivered": "2026-07-14",
+   "cancelled": null,
+   "reason": "",
+   "mrp": 1999.0,
+   "discount": 100.0,
+   "final": 1899.0,
+   "sellerPrice": 1704.0,
+   "city": "New Delhi",
+   "state": "DL"
+  },
+  {
+   "id": "11271401257",
+   "release": "100216671795",
+   "status": "Cancelled",
+   "sku": "BBCS_L/XL",
+   "style": "KUE Pack Of 2 Calf Support Sports Sleeve",
+   "size": "L",
+   "created": "2026-07-08",
+   "delivered": null,
+   "cancelled": "2026-07-09",
+   "reason": "Cash Issue",
+   "mrp": 1999.0,
+   "discount": 100.0,
+   "final": 1899.0,
+   "sellerPrice": 1704.0,
+   "city": "New Delhi",
+   "state": "DL"
+  }
+ ],
+ "cancellations": [
+  {
+   "id": "11271401257",
+   "sku": "KKUESPAC106028940",
+   "reason": "Cash Issue",
+   "type": "Customer Request",
+   "created": "2026-07-08",
+   "cancelled": "2026-07-09"
+  },
+  {
+   "id": "11271401264",
+   "sku": "KKUESPAC106025422",
+   "reason": "Cash Issue",
+   "type": "Customer Request",
+   "created": "2026-07-08",
+   "cancelled": "2026-07-09"
+  }
+ ],
+ "returns": [
+  {
+   "id": "11240683207",
+   "sku": "GCS_S/M",
+   "created": "2026-06-20",
+   "rto": "2026-07-02"
+  }
+ ],
+ "inventory": [
+  {
+   "sku": "KKUESPAC106025443",
+   "sellerSku": "BBAS_S/M",
+   "onhand": 46,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105924409",
+   "sellerSku": "TEC_S_S",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025349",
+   "sellerSku": "TAS_L/XL",
+   "onhand": 48,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105359189",
+   "sellerSku": "TEC_S",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025397",
+   "sellerSku": "GAS_S/M",
+   "onhand": 48,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025365",
+   "sellerSku": "GTAS_L/XL",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105991353",
+   "sellerSku": "TKC_M",
+   "onhand": 43,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028992",
+   "sellerSku": "GGCS_L/XL",
+   "onhand": 47,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025385",
+   "sellerSku": "GTAS_S/M",
+   "onhand": 48,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028974",
+   "sellerSku": "GCS_L/XL",
+   "onhand": 47,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025405",
+   "sellerSku": "BAS_S/M",
+   "onhand": 44,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105991389",
+   "sellerSku": "GKC_XL_S",
+   "onhand": 43,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025435",
+   "sellerSku": "BGAS_L/XL",
+   "onhand": 45,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025450",
+   "sellerSku": "TTAS_L/XL",
+   "onhand": 48,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025347",
+   "sellerSku": "TTAS_S/M",
+   "onhand": 50,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105991365",
+   "sellerSku": "TKC_L_S",
+   "onhand": 43,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028998",
+   "sellerSku": "TTCS_L/XL",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105991373",
+   "sellerSku": "TKC_M_S",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105991381",
+   "sellerSku": "GKC_XL",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105991380",
+   "sellerSku": "TKC_XL",
+   "onhand": 42,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106029000",
+   "sellerSku": "BCS_S/M",
+   "onhand": 45,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025465",
+   "sellerSku": "GGAS_L/XL",
+   "onhand": 47,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105991345",
+   "sellerSku": "TKC_XL_S",
+   "onhand": 45,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028915",
+   "sellerSku": "BTCS_L/XL",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028960",
+   "sellerSku": "BBCS_S/M",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106029003",
+   "sellerSku": "BCS_L/XL",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028940",
+   "sellerSku": "BBCS_L/XL",
+   "onhand": 50,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025407",
+   "sellerSku": "BTAS_S/M",
+   "onhand": 50,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105991364",
+   "sellerSku": "TKC_L",
+   "onhand": 46,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028988",
+   "sellerSku": "BGCS_L/XL",
+   "onhand": 50,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028994",
+   "sellerSku": "GGCS_S/M",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025420",
+   "sellerSku": "BAS_L/XL",
+   "onhand": 47,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028982",
+   "sellerSku": "TTCS_S/M",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025363",
+   "sellerSku": "BTAS_L/XL",
+   "onhand": 48,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105359188",
+   "sellerSku": "TEC_M",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028930",
+   "sellerSku": "TCS_S/M",
+   "onhand": 50,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105924410",
+   "sellerSku": "TEC_XL_S",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025378",
+   "sellerSku": "TAS_S/M",
+   "onhand": 50,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105991388",
+   "sellerSku": "GKC_L",
+   "onhand": 48,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105991355",
+   "sellerSku": "GKC_M",
+   "onhand": 47,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025478",
+   "sellerSku": "GGAS_S/M",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105991402",
+   "sellerSku": "GKC_M_S",
+   "onhand": 39,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028969",
+   "sellerSku": "GTCS_S/M",
+   "onhand": 50,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025425",
+   "sellerSku": "BGAS_S/M",
+   "onhand": 37,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028978",
+   "sellerSku": "BTCS_S/M",
+   "onhand": 48,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105924408",
+   "sellerSku": "TEC_M_S",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028957",
+   "sellerSku": "GTCS_L/XL",
+   "onhand": 50,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105991409",
+   "sellerSku": "GKC_L_S",
+   "onhand": 46,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025422",
+   "sellerSku": "BBAS_L/XL",
+   "onhand": 47,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028937",
+   "sellerSku": "TCS_L/XL",
+   "onhand": 49,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028981",
+   "sellerSku": "GCS_S/M",
+   "onhand": 45,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC105359190",
+   "sellerSku": "TEC_XL",
+   "onhand": 47,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106025376",
+   "sellerSku": "GAS_L/XL",
+   "onhand": 50,
+   "sellable": 0
+  },
+  {
+   "sku": "KKUESPAC106028985",
+   "sellerSku": "BGCS_S/M",
+   "onhand": 46,
+   "sellable": 0
+  }
+ ],
+ "settlement": [
+  {
+   "id": "11286365737",
+   "sku": "TKC_M",
+   "style": "KUE Compression Support Knee Cap",
+   "status": "Delivered",
+   "created": "2026-07-17",
+   "delivered": "2026-07-25",
+   "due": "2026-08-04",
+   "paymentStatus": "UNSETTLED",
+   "settled": 0.0,
+   "expected": 719.8
+  },
+  {
+   "id": "11294999248",
+   "sku": "TKC_XL",
+   "style": "KUE Compression Support Knee Cap",
+   "status": "Packed/In-Transit",
+   "created": "2026-07-23",
+   "delivered": null,
+   "due": null,
+   "paymentStatus": "UNSETTLED",
+   "settled": 0.0,
+   "expected": 0.0
+  },
+  {
+   "id": "11271401254",
+   "sku": "BCS_S/M",
+   "style": "KUE Calf Support Sports Sleeve",
+   "status": "Delivered",
+   "created": "2026-07-08",
+   "delivered": "2026-07-14",
+   "due": "2026-07-24",
+   "paymentStatus": "UNSETTLED",
+   "settled": 0.0,
+   "expected": 1039.95
+  },
+  {
+   "id": "11271401251",
+   "sku": "BBAS_S/M",
+   "style": "KUE Set Of 2 Men Compression Arm Support Sleeves",
+   "status": "Delivered",
+   "created": "2026-07-08",
+   "delivered": "2026-07-14",
+   "due": "2026-07-24",
+   "paymentStatus": "UNSETTLED",
+   "settled": 0.0,
+   "expected": 1038.95
+  },
+  {
+   "id": "11271401264",
+   "sku": "BBAS_L/XL",
+   "style": "KUE Men Set Of 2 Compression Arm Support Sleeves",
+   "status": "Cancelled",
+   "created": "2026-07-08",
+   "delivered": null,
+   "due": null,
+   "paymentStatus": "UNSETTLED",
+   "settled": 0.0,
+   "expected": 0.0
+  },
+  {
+   "id": "11271401257",
+   "sku": "BBCS_L/XL",
+   "style": "KUE Pack Of 2 Calf Support Sports Sleeve",
+   "status": "Cancelled",
+   "created": "2026-07-08",
+   "delivered": null,
+   "due": null,
+   "paymentStatus": "UNSETTLED",
+   "settled": 0.0,
+   "expected": 0.0
+  },
+  {
+   "id": "11255892305",
+   "sku": "(pre-July order)",
+   "style": "KUE Compression Support Knee Cap",
+   "status": "Delivered",
+   "created": "2026-06-30",
+   "delivered": "2026-07-04",
+   "due": "2026-07-18",
+   "paymentStatus": "UNSETTLED",
+   "settled": 0,
+   "expected": 717.8,
+   "manualNote": "Found on live Payment Details page only (outside Orders/emailed-Settlement date windows), verified on 2 separate page loads"
+  }
+ ]
+};
+
+const fmt = n => '₹' + Number(n||0).toLocaleString('en-IN', {maximumFractionDigits:0});
+const fmt2 = n => '₹' + Number(n||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+// ---------- Tabs ----------
+document.querySelectorAll('#tabs button').forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  };
+});
+
+// ---------- Chart defaults ----------
+if (window.Chart) {
+  Chart.defaults.color = '#93a0b8';
+  Chart.defaults.borderColor = '#2a3348';
+  Chart.defaults.font.family = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+}
+
+function renderTable(tblId, headers, rows){
+  const tbl = document.getElementById(tblId);
+  let html = '<thead><tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+  rows.forEach(r=>{ html += '<tr>' + r.map(c=>`<td>${c===null||c===undefined||c===''?'—':c}</td>`).join('') + '</tr>'; });
+  html += '</tbody>';
+  tbl.innerHTML = html;
+}
+
+function renderDashboard(){
+  ['chartOrderStatus','chartSettlement','chartInventory'].forEach(id=>{
+    const c = Chart.getChart(id); if (c) c.destroy();
+  });
+
+  const orders = DATA.orders || [];
+  const settlement = DATA.settlement || [];
+  const cancellations = DATA.cancellations || [];
+  const returns = DATA.returns || [];
+  const inventory = DATA.inventory || [];
+
+  const firstDate = orders.length ? orders.map(o=>o.created).sort()[0] : '';
+  const lastDate = orders.length ? orders.map(o=>o.created).sort().slice(-1)[0] : '';
+  document.getElementById('periodLine').textContent =
+    `Data period: Orders/Returns/Cancellations 1–27 Jul 2026 | Settlement as of 28 Jul 2026 | Generated 28 Jul 2026 (${orders.length} order lines this period)`;
+
+  // ---- KPIs ----
+  const nDelivered = orders.filter(o=>o.status==='Delivered').length;
+  const nCancelled = orders.filter(o=>o.status==='Cancelled').length;
+  const nTransit = orders.filter(o=>o.status==='Packed/In-Transit').length;
+  const grossVal = orders.reduce((s,o)=>s+o.final,0);
+  const netVal = orders.filter(o=>o.status!=='Cancelled').reduce((s,o)=>s+o.final,0);
+  const cancelledVal = orders.filter(o=>o.status==='Cancelled').reduce((s,o)=>s+o.final,0);
+  const totalSettled = settlement.reduce((s,r)=>s+(r.settled||0),0);
+  const today = new Date('2026-07-28');
+  let overdueAmt=0, notyetdueAmt=0, overdueList=[];
+  settlement.forEach(r=>{
+    if (r.status==='Delivered' && r.paymentStatus==='UNSETTLED' && r.expected>0 && r.due){
+      const due = new Date(r.due);
+      if (due < today){ overdueAmt += r.expected; overdueList.push(r); }
+      else notyetdueAmt += r.expected;
+    }
+  });
+  const nSellableZero = inventory.filter(i=>i.sellable===0).length;
+  const totalOnHand = inventory.reduce((s,i)=>s+i.onhand,0);
+
+  const kpis = [
+    ['Total Order Lines', orders.length, ''],
+    ['Delivered', nDelivered, ''],
+    ['Cancelled', nCancelled, ''],
+    ['Packed / In-Transit', nTransit, ''],
+    ['Gross Order Value', fmt(grossVal), ''],
+    ['Net Order Value (excl. cancelled)', fmt(netVal), ''],
+    ['Total Settled', fmt2(totalSettled), 'bad'],
+    ['Overdue Unsettled', fmt2(overdueAmt), 'bad'],
+    ['Pending (not yet due)', fmt2(notyetdueAmt), 'warn'],
+    ['Return / RTO Count', returns.length, ''],
+    ['SKUs w/ Zero Sellable Stock', nSellableZero + ' / ' + inventory.length, 'bad'],
+    ['Total Units On Hand', totalOnHand.toLocaleString('en-IN'), ''],
+  ];
+  document.getElementById('kpiGrid').innerHTML = kpis.map(([label,val,cls])=>`
+    <div class="kpi"><div class="label">${label}</div><div class="value ${cls}">${val}</div></div>
+  `).join('');
+
+  document.getElementById('criticalBody').innerHTML = `
+    <p style="margin:0 0 8px;">The live Payment Details page (Payment &gt; Financial Reports &gt; Payment Details) shows a "Delay Reason" of
+    <b>"Seller is disabled"</b> on ${overdueList.length} delivered orders whose settlement is already past due —
+    a total of <b>${fmt2(overdueAmt)}</b> held up, overdue by up to 10 days as of 28-Jul-2026.
+    This is a seller-account-status block, not the normal 15-day settlement cycle.</p>
+    <p style="margin:0;">It likely also explains why all ${inventory.length} active SKUs show <b>0 sellable inventory</b> despite
+    ${totalOnHand.toLocaleString('en-IN')} physical units on hand, and why order volume this month
+    (${orders.length} order lines, ${fmt(grossVal)} gross) is far below Amazon/Flipkart/Shopify for the same period.
+    <b>Raise this directly with Myntra seller support</b> — it cannot be resolved from this dashboard.</p>
+  `;
+
+  document.getElementById('goingRight').innerHTML = `
+    <li>✓ ${nDelivered} of ${orders.length} July order lines delivered with zero product-quality complaints (the 1 RTO in the Returns report is from a 20-Jun order, not a July one).</li>
+    <li>✓ Cancellation rate is contained: ${nCancelled} of ${orders.length} orders cancelled, both for the identical reason (Cash Issue / Customer Request on COD orders placed 8-Jul) — not a systemic problem.</li>
+    <li>✓ All ${inventory.length} active SKUs have healthy physical stock on hand (${totalOnHand.toLocaleString('en-IN')} units total) — this is a sellability flag, not an empty-shelf problem.</li>
+  `;
+  document.getElementById('needsAttention').innerHTML = `
+    <li>⚠ ${fmt2(overdueAmt)} in overdue, unsettled payouts across ${overdueList.length} orders, all flagged "Seller is disabled" — see red banner above.</li>
+    <li>⚠ 100% of the catalog is rated "non-competitively priced" and "low impression" on the Business Growth Dashboard.</li>
+    <li>⚠ Only ${orders.length} order lines placed in the entire 1–27 Jul window (${fmt(grossVal)} gross) — an order of magnitude below Amazon/Flipkart/Shopify for the same period.</li>
+  `;
+
+  // ---- Order Value by Status chart ----
+  const statusGroups = {};
+  orders.forEach(o=>{ statusGroups[o.status] = (statusGroups[o.status]||0) + o.final; });
+  new Chart(document.getElementById('chartOrderStatus'), {
+    type: 'doughnut',
+    data: { labels: Object.keys(statusGroups), datasets: [{ data: Object.values(statusGroups),
+      backgroundColor: ['#3ddc97','#ff5d6c','#ffb454','#ff3f6c'] }] },
+    options: { plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // ---- Settlement Status chart ----
+  new Chart(document.getElementById('chartSettlement'), {
+    type: 'bar',
+    data: { labels: ['Settled','Overdue (Seller Disabled)','Pending (Not Yet Due)'],
+      datasets: [{ data: [totalSettled, overdueAmt, notyetdueAmt],
+        backgroundColor: ['#3ddc97','#ff5d6c','#ffb454'] }] },
+    options: { plugins: { legend: { display:false } },
+      scales: { y: { beginAtZero:true, ticks:{ callback: v=>'₹'+v.toLocaleString('en-IN') } } } }
+  });
+
+  // ---- Inventory chart: on-hand vs sellable ----
+  new Chart(document.getElementById('chartInventory'), {
+    type: 'bar',
+    data: { labels: ['Total Units On Hand','Total Sellable Units'],
+      datasets: [{ data: [totalOnHand, inventory.reduce((s,i)=>s+i.sellable,0)],
+        backgroundColor: ['#2a3348','#ff5d6c'] }] },
+    options: { indexAxis: 'y', plugins:{legend:{display:false}},
+      scales: { x: { beginAtZero:true } } }
+  });
+
+  // ---- Tables ----
+  renderTable('tblOrders',
+    ['Order Line ID','Status','SKU','Style','Created','Delivered','Cancelled','Reason','MRP','Final Amount','City'],
+    orders.map(o=>[o.id, `<span class="badge ${o.status==='Delivered'?'green':o.status==='Cancelled'?'red':'yellow'}">${o.status}</span>`,
+      o.sku, o.style, o.created, o.delivered, o.cancelled, o.reason, fmt(o.mrp), fmt(o.final), o.city])
+  );
+
+  renderTable('tblSettlement',
+    ['Order Line ID','SKU','Status','Delivered','Due Date','Payment Status','Settled','Expected','Note'],
+    settlement.map(r=>{
+      let note = '';
+      if (r.status==='Delivered' && r.paymentStatus==='UNSETTLED' && r.expected>0 && r.due){
+        const due = new Date(r.due);
+        if (due < today) note = `<span class="badge red">OVERDUE — Seller is disabled</span>`;
+        else note = `<span class="badge yellow">Not yet due</span>`;
+      } else if (r.status==='Cancelled') note = 'Cancelled — no settlement';
+      else if (r.status==='Packed/In-Transit') note = 'Not yet delivered';
+      if (r.manualNote) note += '<br><span style="color:var(--muted);font-size:10.5px;">' + r.manualNote + '</span>';
+      return [r.id, r.sku, r.status, r.delivered, r.due, r.paymentStatus, fmt2(r.settled), fmt2(r.expected), note];
+    })
+  );
+
+  renderTable('tblCancel', ['Order Line ID','SKU','Reason','Type','Created','Cancelled'],
+    cancellations.map(c=>[c.id, c.sku, c.reason, c.type, c.created, c.cancelled]));
+
+  renderTable('tblReturns', ['Order Line ID','SKU','Order Created','RTO Date'],
+    returns.map(r=>[r.id, r.sku, r.created, r.rto]));
+
+  renderTable('tblInventory', ['SKU Code','Seller SKU','Units On Hand','Sellable Units'],
+    inventory.map(i=>[i.sku, i.sellerSku, i.onhand, i.sellable===0?'<span class="badge red">0</span>':i.sellable]));
+}
+
+renderDashboard();
+
+// ============================================================
+// LIVE WORKBOOK LOADER
+// ============================================================
+const loadBtn = document.getElementById('loadWorkbookBtn');
+const fileInput = document.getElementById('workbookFileInput');
+const loadStatus = document.getElementById('loadStatus');
+loadBtn.onclick = () => fileInput.click();
+
+function sheetRows(wb, sheetName, headerRow){
+  // headerRow is the 1-indexed spreadsheet row number containing column headers (e.g. 2).
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return null;
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+  if (rows.length < headerRow) return [];
+  // SheetJS sometimes includes a leading empty column A in the array and sometimes doesn't,
+  // depending on the sheet's used-range metadata — normalize by finding where the header
+  // row's first real value actually starts, then slicing every row from that offset.
+  const headerArr = rows[headerRow-1] || [];
+  let offset = headerArr.findIndex(v => v !== null && v !== '');
+  if (offset < 0) offset = 0;
+  const out = [];
+  for (let i = headerRow; i < rows.length; i++){
+    const r = (rows[i] || []).slice(offset);
+    const isBlank = r.every(v => v === null || v === '');
+    if (isBlank) break; // stop at the first fully-blank row — anything after is footnote/warning
+                         // text below the table, not data, and would otherwise get swept in.
+    if (typeof r[0]==='string' && r[0].trim().toUpperCase()==='TOTAL') continue;
+    out.push(r);
+  }
+  return out;
+}
+
+fileInput.addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  loadStatus.textContent = 'Loading…';
+  const reader = new FileReader();
+  reader.onload = function(evt){
+    try {
+      const wb = XLSX.read(evt.target.result, {type:'array'});
+
+      const ordersRows = sheetRows(wb, 'Orders Detail', 2);
+      const newOrders = ordersRows ? ordersRows.map(r => ({
+        id:String(r[0]), release:String(r[1]), status:r[2], sku:r[3], style:r[4], size:r[5],
+        created:r[6], delivered:r[8]||null, cancelled:r[9]||null, reason:r[10]||'',
+        mrp:Number(r[11])||0, discount:Number(r[12])||0, final:Number(r[14])||0, city:r[16], state:r[17]
+      })) : DATA.orders;
+
+      const cancelRows = sheetRows(wb, 'Cancellations Detail', 2);
+      const newCancels = cancelRows ? cancelRows.map(r => ({
+        id:String(r[0]), sku:r[2], reason:r[3], type:r[4], created:r[5], cancelled:r[6]
+      })) : DATA.cancellations;
+
+      const returnRows = sheetRows(wb, 'Returns Detail', 2);
+      const newReturns = returnRows ? returnRows.map(r => ({
+        id:String(r[0]), sku:r[1], created:r[2], rto:r[4]
+      })) : DATA.returns;
+
+      const invRows = sheetRows(wb, 'Inventory Detail', 2);
+      const newInv = invRows ? invRows.map(r => ({
+        sku:r[0], sellerSku:r[1], onhand:Number(r[3])||0, sellable:Number(r[4])||0
+      })) : DATA.inventory;
+
+      const settleRows = sheetRows(wb, 'Settlement Detail', 2);
+      const newSettle = settleRows ? settleRows.map(r => ({
+        id:String(r[0]), sku:r[2], style:r[3], status:r[4], created:r[5], delivered:r[6]||null,
+        due:r[7]||null, paymentStatus:r[8], settled:Number(r[14])||0, expected:Number(r[15])||0
+      })) : DATA.settlement;
+
+      DATA = { orders:newOrders, cancellations:newCancels, returns:newReturns, inventory:newInv, settlement:newSettle };
+      renderDashboard();
+      loadStatus.textContent = '✓ Loaded ' + file.name + ' at ' + new Date().toLocaleTimeString();
+    } catch(err){
+      loadStatus.textContent = '✗ Error: ' + err.message;
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+</script>
+</body>
+</html>
