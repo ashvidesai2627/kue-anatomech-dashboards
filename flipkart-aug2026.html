@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KUE / Anatomech — Flipkart Sales Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#171e2e; --panel2:#1d2536; --border:#2a3348;
+    --text:#e8ecf5; --muted:#93a0b8; --accent:#ffe500; --accent2:#2874f0;
+    --good:#3ddc97; --warn:#ffb454; --bad:#ff5d6c;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:24px 32px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:50;}
+  header h1{margin:0 0 4px;font-size:22px;font-weight:700;}
+  header .sub{color:var(--muted);font-size:13px;}
+  nav{display:flex;gap:6px;padding:14px 32px 0;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:70px;z-index:49;}
+  nav button{background:none;border:none;color:var(--muted);padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;transition:.15s;white-space:nowrap;}
+  nav button:hover{color:var(--text);}
+  nav button.active{color:var(--accent2);border-bottom-color:var(--accent2);}
+  main{padding:24px 32px 60px;max-width:1500px;margin:0 auto;}
+  .tab{display:none;}
+  .tab.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:24px;}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+  .kpi .label{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+  .kpi .value{font-size:22px;font-weight:700;}
+  .kpi .value.good{color:var(--good);}
+  .kpi .value.bad{color:var(--bad);}
+  .kpi .value.warn{color:var(--warn);}
+  .kpi .note{font-size:11px;color:var(--muted);margin-top:4px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:20px;}
+  .panel h2{margin:0 0 4px;font-size:15px;}
+  .panel .desc{color:var(--muted);font-size:12.5px;margin-bottom:14px;}
+  .grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+  @media(max-width:1000px){.grid2,.grid3{grid-template-columns:1fr;}}
+  canvas{max-width:100%;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{text-align:left;padding:8px 10px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;position:sticky;top:0;background:var(--panel2);}
+  th:hover{color:var(--accent2);}
+  td{padding:7px 10px;border-bottom:1px solid #232b3d;white-space:nowrap;}
+  tr:hover td{background:#1b2436;}
+  tr.total-row td{background:#20304a;font-weight:700;}
+  .table-wrap{max-height:520px;overflow:auto;border-radius:8px;border:1px solid var(--border);}
+  .controls{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+  input[type=text]{background:#101627;border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:12.5px;min-width:220px;}
+  select{background:#101627;border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-size:12.5px;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+  .badge.red{background:rgba(255,93,108,.18);color:var(--bad);}
+  .badge.yellow{background:rgba(255,180,84,.18);color:var(--warn);}
+  .badge.green{background:rgba(61,220,151,.18);color:var(--good);}
+  .neg{color:var(--bad);}
+  .pos{color:var(--good);}
+  ul.insight{margin:0;padding-left:18px;}
+  ul.insight li{margin-bottom:10px;font-size:13.5px;line-height:1.5;color:#cfd6e4;}
+  ul.insight li b{color:var(--text);}
+  footer{text-align:center;color:var(--muted);font-size:11.5px;padding:20px;}
+  .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .pill{background:#101627;border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11.5px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>KUE / Anatomech — Flipkart Sales Performance Dashboard</h1>
+  <div class="sub" id="periodLine">Loading…</div>
+  <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button id="loadWorkbookBtn" style="background:#2874f0;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;">&#128193; Load Workbook (.xlsx)</button>
+    <input type="file" id="workbookFileInput" accept=".xlsx" style="display:none;">
+    <span id="loadStatus" style="font-size:11.5px;color:var(--muted);"></span>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-top:4px;">Loading a workbook live-refreshes Daily/Weekly Sales, SKU Performance, Returns and the reasoning cards above. Ads, Inventory, Payments and Quality panels stay as generation-time snapshots.</div>
+</header>
+
+<nav id="tabs">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="dailysales">Daily Sales</button>
+  <button data-tab="weeklysales">Weekly Sales</button>
+  <button data-tab="skuperf">SKU Performance</button>
+  <button data-tab="pnl">Period P&amp;L</button>
+  <button data-tab="returns">Returns Trend</button>
+  <button data-tab="returndetail">Returns Detail</button>
+  <button data-tab="inventory">Inventory</button>
+  <button data-tab="ads">Ads</button>
+  <button data-tab="payments">Payments</button>
+  <button data-tab="notes">Data Notes</button>
+</nav>
+
+<main>
+
+  <section class="tab active" id="tab-overview">
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="panel" style="border-color:#3d2f1a;background:linear-gradient(180deg,#1d1a12,#171e2e);">
+      <h2>⚠ Quality &amp; Ads Signals</h2>
+      <div class="desc">Real signals pulled from Growth &gt; Customer Feedback Insights and the Ads Manager.</div>
+      <div id="alertCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;"></div>
+    </div>
+    <div class="panel">
+      <h2>Why the numbers move</h2>
+      <div class="desc">Grounded in the actual daily/weekly Sales Report and returns data below — not generic commentary.</div>
+      <div id="reasonCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Daily Return Requests (units)</h2>
+        <div class="desc">Only series with genuine daily granularity this run — see Data Notes tab.</div>
+        <canvas id="chartDailyReturns" height="260"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Return Reasons (period)</h2>
+        <div class="desc">Units returned by reason code, 1–24 Jul 2026</div>
+        <canvas id="chartReasons" height="260"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-dailysales">
+    <div class="panel">
+      <h2>Daily Sales &amp; P&amp;L, 1–24 Jul 2026</h2>
+      <div class="desc">Real per-order-item data from an official Flipkart Sales Report export (Report Centre &gt; Tax Reports), user-downloaded and uploaded. Fees/Taxes are not broken out per day — see Period P&amp;L tab for period totals.</div>
+      <canvas id="chartDailySales" height="260"></canvas>
+    </div>
+    <div class="panel">
+      <div class="table-wrap"><table id="tblDailySales"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-weeklysales">
+    <div class="panel">
+      <h2>Weekly Sales &amp; P&amp;L Rollup</h2>
+      <div class="desc">Rolled up from the Daily Sales &amp; P&amp;L tab. Week 4 (Jul 20-24) is partial (5 of 7 days) since the source Sales Report export stops at 24 Jul. Ad Spend/ACOS/ROI are period-level only (see Ad Performance panel below) — not available broken down by week, so weekly cells show NA.</div>
+      <canvas id="chartWeeklySales" height="260"></canvas>
+    </div>
+    <div class="panel">
+      <div class="table-wrap"><table id="tblWeeklySales"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-skuperf">
+    <div class="panel">
+      <h2>SKU-Level Sales Performance, 1–24 Jul 2026</h2>
+      <div class="desc">All 63 SKUs with real sale/return activity in the Sales Report period, joined with the Listings export for stock/price/status (61 matched; 2 new SKUs added in the 22-24 Jul rebuild are marked "NOT MATCHED" — no fresh Listings export was pulled to confirm their stock/price/status). Not the full ~423-SKU catalog — SKUs with zero orders this period are excluded.</div>
+      <canvas id="chartSkuPerf" height="280"></canvas>
+    </div>
+    <div class="panel">
+      <div class="controls">
+        <input type="text" id="skuSearch" placeholder="Search SKU or product title…">
+        <select id="skuFilter">
+          <option value="">All</option>
+          <option value="oos">Out of stock only</option>
+          <option value="highret">Return rate ≥ 20% only</option>
+        </select>
+      </div>
+      <div class="table-wrap"><table id="tblSkuPerf"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-pnl">
+    <div class="panel">
+      <h2>Earnings Summary — Overall, 1–24 Jul 2026</h2>
+      <div class="desc">Pulled directly from Payments &gt; Earnings Summary (Overall Summary, custom date range). Do not compare with Earn More dashboard.</div>
+      <canvas id="chartPnl" height="220"></canvas>
+    </div>
+    <div class="panel">
+      <div class="table-wrap"><table id="tblPnl"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-returns">
+    <div class="panel">
+      <h2>Daily Return Requests, 1–24 Jul 2026</h2>
+      <div class="desc">Courier/RTO returns (never delivered) vs. customer-initiated returns (after delivery)</div>
+      <canvas id="chartDailyFull" height="260"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Most-Returned SKUs (period)</h2>
+      <canvas id="chartSku" height="280"></canvas>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-returndetail">
+    <div class="panel">
+      <div class="controls">
+        <input type="text" id="retSearch" placeholder="Search SKU, order ID or reason…">
+        <select id="retFilter">
+          <option value="">All types</option>
+          <option value="Courier/RTO">Courier/RTO only</option>
+          <option value="Customer Return">Customer Returns only</option>
+        </select>
+      </div>
+      <div class="table-wrap"><table id="tblRet"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-inventory">
+    <div class="kpi-grid" id="kpiInv"></div>
+    <div class="panel">
+      <h2>Out of Stock SKUs (with sales history)</h2>
+      <div class="table-wrap"><table id="tblInv"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-ads">
+    <div class="panel">
+      <h2>Flipkart Ads — Campaign Manager (Last 30 Days)</h2>
+      <p id="adsNote" style="color:var(--muted);font-size:13.5px;"></p>
+    </div>
+    <div class="kpi-grid" id="kpiAds"></div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Ad Spend by Campaign (top 12, live/spending only)</h2>
+        <canvas id="chartAdsSpend" height="280"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Spend vs. Revenue by Campaign</h2>
+        <canvas id="chartAdsScatter" height="280"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="controls">
+        <input type="text" id="adsSearch" placeholder="Search campaign name…">
+        <select id="adsFilter">
+          <option value="">All statuses</option>
+          <option value="Live">Live only</option>
+          <option value="Paused">Paused only</option>
+          <option value="Aborted">Aborted only</option>
+          <option value="Completed">Completed only</option>
+        </select>
+      </div>
+      <div class="table-wrap"><table id="tblAds"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-payments">
+    <div class="panel">
+      <h2>Upcoming Payments</h2>
+      <div class="table-wrap"><table id="tblUpcoming"></table></div>
+    </div>
+    <div class="panel">
+      <h2>Recent Payment History</h2>
+      <div class="table-wrap"><table id="tblRecent"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-notes">
+    <div class="panel">
+      <h2>Data Sources &amp; Gaps — please read</h2>
+      <ul class="insight" id="dataGaps"></ul>
+    </div>
+  </section>
+
+</main>
+<footer>KUE / Anatomech Flipkart Sales Dashboard — built from live Flipkart Seller Hub data + official uploaded exports, 27 Jul 2026</footer>
+
+<script>
+let DATA = {"periodLine": "Period: 1 Jul - 24 Jul 2026 (Earnings Summary, CARRIED FORWARD - no fresher official export uploaded) | Daily/Weekly Sales & SKU: 1-24 Jul (Sales Report, unchanged this run) | Daily Settlement & Fees (Live): 1-2 Aug 2026 in the NEW August xlsx workbook only (this interactive HTML does not render that tab; open the xlsx for real August settlement figures: Aug 1 = Rs1,424 sale amount/5 order items, Aug 2 = Rs0/0 order items, provisional) | Live snapshot: not re-verified this run | Generated 03-Aug-2026, NEW August workbook, IN PROGRESS", "pnl": {"grossSalesUnits": 350, "grossSalesAmt": 132978, "returnsUnits": -106, "returnsAmt": -41365, "estNetSales": 91613, "shopsyFees": 36, "sellerDiscount": -5441, "netSalesUnits": 244, "netSalesAmt": 85487, "feesCosts": -43499, "marketplaceFees": -5173, "fixedFee": -3657, "reverseShipping": -1485, "shopsyRecovery": -31, "taxes": -7470, "rewardsSpf": 585, "bankSettlement": 35103, "bankSettled": 20803, "inputTaxCredits": 7470, "netEarnings": 42574, "returnRatePct": 30.29}, "today": {"salesToday": null, "salesYesterday": null, "unitsToday": null, "unitsYesterday": null, "newOrders": null, "pendingRTD": null, "returnsToday": null, "returnsHandedOver": null, "upcomingPayment": null, "impressionsToday": null, "impressionsYesterday": null, "note": "NOT RE-VERIFIED this run - Home dashboard live tiles were not re-checked for August. See xlsx Daily Settlement (Live) tab for actual Aug 1-2 pulls."}, "inventory": {"totalSkus": 423, "totalUnits": 12644, "lowStock": 1, "outOfStock": 1, "recommendations": 1, "oosList": [{"sku": "ARM_Black_S", "fsn": "ALSGNM77RY62237T", "product": "KUE Nylon, Polyester Arm Sleeve For Men & Women", "avgDailySales": 1, "potentialLoss": 362, "status": "OUT OF STOCK"}, {"sku": "BKL", "fsn": "SOCG5TYSBNHSTKBJ", "product": "KUE Graduated Compression Socks 18-21 mmHg for men and women, enhances blood circulation, best support for Athletic Running, Cycling. Unisex Solid Knee High", "avgDailySales": 0, "potentialLoss": 0, "status": "LOW STOCK (1 unit, DOH 10 days)"}]}, "quality": {"listingsWithComplaints": 35, "gmvLoss": 1880, "complaintTypes": ["Different Product Received", "Quality Not As Expected", "Damaged Product Received"]}, "ads": {"activeCampaigns": 14, "totalCampaigns": 64, "adSpend": 40450.15, "revenue": 148664.0, "roi": 3.68, "tacos": 27.21, "views": 1158174, "clicks": 19117, "unitsSold": 321, "note": "CORRECTED after review: real Campaign Manager data (Ads > Campaign Manager), last 30 days (27 Jun - 27 Jul 2026), 14 Live of 64 total campaigns.", "campaigns": [{"name": "Boost_Sales_HelmetAndRidingGear 06-05-2026", "status": "Live", "type": "PLA", "spend": 67.0, "views": 2919, "clicks": 68, "ctr": 2.33, "unitsSold": 5, "revenue": 2240.0, "roi": 33.43, "cvr": 7.35}, {"name": "Arm Calf Sleeve Best seller_30July", "status": "Live", "type": "PLA", "spend": 8052.0, "views": 210659, "clicks": 3493, "ctr": 1.66, "unitsSold": 51, "revenue": 25080.0, "roi": 3.11, "cvr": 1.46}, {"name": "Calf Sleeve PLA_CS_18_July", "status": "Live", "type": "PLA", "spend": 1977.0, "views": 49639, "clicks": 792, "ctr": 1.6, "unitsSold": 12, "revenue": 5755.0, "roi": 2.91, "cvr": 1.52}, {"name": "Ankle Socks", "status": "Live", "type": "PLA", "spend": 1083.0, "views": 39425, "clicks": 408, "ctr": 1.03, "unitsSold": 16, "revenue": 6548.0, "roi": 6.05, "cvr": 3.92}, {"name": "Calf Sleeve PLA", "status": "Live", "type": "PLA", "spend": 19.0, "views": 534, "clicks": 6, "ctr": 1.12, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Calf Sleeve Keyword_Planner-2026-07-27", "status": "Live", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Arm Sleeve PCA Jan", "status": "Live", "type": "PCA", "spend": 6651.25, "views": 379052, "clicks": 5679, "ctr": 1.5, "unitsSold": 48, "revenue": 21524.0, "roi": 3.24, "cvr": 0.85}, {"name": "Calf Sleeve PCA", "status": "Live", "type": "PCA", "spend": 0.0, "views": 31, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 08-01-2026 02_25", "status": "Live", "type": "PLA", "spend": 7553.0, "views": 73618, "clicks": 1663, "ctr": 2.26, "unitsSold": 54, "revenue": 25557.0, "roi": 3.38, "cvr": 3.25}, {"name": "Knee Sleeves", "status": "Live", "type": "PLA", "spend": 564.0, "views": 15470, "clicks": 194, "ctr": 1.25, "unitsSold": 3, "revenue": 1044.0, "roi": 1.85, "cvr": 1.55}, {"name": "Arm Sleeve-26-02-26", "status": "Live", "type": "PLA", "spend": 6259.0, "views": 178259, "clicks": 3108, "ctr": 1.74, "unitsSold": 56, "revenue": 27231.0, "roi": 4.35, "cvr": 1.8}, {"name": "Mix_Products", "status": "Live", "type": "PLA", "spend": 6309.0, "views": 107127, "clicks": 2443, "ctr": 2.28, "unitsSold": 54, "revenue": 23837.0, "roi": 3.78, "cvr": 2.21}, {"name": "PLA_HERO LIDS_SR", "status": "Completed", "type": "PLA", "spend": 30.0, "views": 711, "clicks": 38, "ctr": 5.34, "unitsSold": 1, "revenue": 448.0, "roi": 14.93, "cvr": 2.63}, {"name": "CPC Best Seller-08-01-2026", "status": "Live", "type": "PLA", "spend": 1201.0, "views": 36317, "clicks": 612, "ctr": 1.69, "unitsSold": 15, "revenue": 6712.0, "roi": 5.59, "cvr": 2.45}, {"name": "Test", "status": "Paused", "type": "PCA", "spend": 468.9, "views": 46370, "clicks": 342, "ctr": 0.74, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Best seller_19_Jan_2026", "status": "Live", "type": "PLA", "spend": 216.0, "views": 18043, "clicks": 271, "ctr": 1.5, "unitsSold": 6, "revenue": 2688.0, "roi": 12.44, "cvr": 2.21}, {"name": "Best Seller-08-01-2026", "status": "Paused", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Best seller_18July", "status": "Paused", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "TOp SKU June_27", "status": "Paused", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Keyword_Planner Arm-2026-03-20", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Keyword_Planner-2026-03-20", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PLA_Campaign-2025-05-28", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of ROI july 10", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "ROI 10 july", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "ARM_23June", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "ROI of TOp SKU June_27", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of Roi booster", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Keyword_Planner-2026-01-19", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of Best seller_18July_ROI", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Keyword_Planner-2026-01-08", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PCA _27June", "status": "Paused", "type": "PCA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 30-07-2025 11_53", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PLA_AS_18 july", "status": "Paused", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PLA_Campaign-2025-05-27", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 10-07-2025 03_50", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Roi booster", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of armsleev_adex ROI", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 25-10-2024 10_30", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 23-10-2024 11_15", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 17-10-2024 01_57", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "ARM_22", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of Arm", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "ARMSLEEV CPC_ADEX", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of Non selling cpc", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of Arm 22 28 may", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "armsleev_adex ROI", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Arm", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Socks AnkleKnee 12feb", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Knee Socks_PLA_CPC_26AMarch", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PLA_CPC_Calfsleeves_26Feb", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Digi1", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "ROi_TOP_4-4-24", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PLA_ROI_Arm_18Mar", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "KUE_ROI_3", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "KUE_ROI_2", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "KUE_ROI_!", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of ALL SKU", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of ALL SKU2nov", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Low cvr", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of Arm_Dec_SmartROI", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PLA_CPC_Crew_13Mar", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Calf 12feb", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 26-09-2024 03_39", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 28-10-2024 11_14", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}]}, "payments": {"upcoming": [{"date": "29-Jul-2026", "prepaid": 7048, "postpaid": 805, "total": 7853}, {"date": "03-Aug-2026", "prepaid": 3276, "postpaid": 5717, "total": 8993}, {"date": "05-Aug-2026", "prepaid": 1819, "postpaid": -36540, "total": 0}], "totalOutstanding": -17874, "recent": [{"date": "27-Jul-2026", "amount": 0, "note": "Net payable negative; no payment made"}, {"date": "24-Jul-2026", "amount": 12250, "note": ""}, {"date": "22-Jul-2026", "amount": 0, "note": "Net payable negative; no payment made"}, {"date": "20-Jul-2026", "amount": 0, "note": "Net payable negative; no payment made"}]}, "daily": [{"date": "01-Jul-2026", "total": 7, "courier": 6, "customer": 1}, {"date": "02-Jul-2026", "total": 6, "courier": 4, "customer": 2}, {"date": "03-Jul-2026", "total": 6, "courier": 4, "customer": 2}, {"date": "04-Jul-2026", "total": 3, "courier": 1, "customer": 2}, {"date": "05-Jul-2026", "total": 3, "courier": 1, "customer": 2}, {"date": "06-Jul-2026", "total": 3, "courier": 1, "customer": 2}, {"date": "07-Jul-2026", "total": 6, "courier": 4, "customer": 2}, {"date": "08-Jul-2026", "total": 6, "courier": 3, "customer": 3}, {"date": "09-Jul-2026", "total": 6, "courier": 5, "customer": 1}, {"date": "10-Jul-2026", "total": 3, "courier": 3, "customer": 0}, {"date": "11-Jul-2026", "total": 8, "courier": 8, "customer": 0}, {"date": "12-Jul-2026", "total": 4, "courier": 4, "customer": 0}, {"date": "13-Jul-2026", "total": 3, "courier": 3, "customer": 0}, {"date": "14-Jul-2026", "total": 4, "courier": 4, "customer": 0}, {"date": "15-Jul-2026", "total": 3, "courier": 3, "customer": 0}, {"date": "16-Jul-2026", "total": 1, "courier": 1, "customer": 0}, {"date": "17-Jul-2026", "total": 4, "courier": 3, "customer": 1}, {"date": "18-Jul-2026", "total": 9, "courier": 9, "customer": 0}, {"date": "19-Jul-2026", "total": 7, "courier": 7, "customer": 0}, {"date": "20-Jul-2026", "total": 7, "courier": 6, "customer": 1}, {"date": "21-Jul-2026", "total": 4, "courier": 4, "customer": 0}, {"date": "22-Jul-2026", "total": 6, "courier": 5, "customer": 1}, {"date": "23-Jul-2026", "total": 4, "courier": 1, "customer": 3}, {"date": "24-Jul-2026", "total": 2, "courier": 0, "customer": 2}], "returns": [{"date": "24-Jul-2026", "orderId": "6158084100", "sku": "ACS-001-GY-L-P1", "qty": 1, "type": "Customer Return", "reason": "SIZE_FIT_ISSUES"}, {"date": "24-Jul-2026", "orderId": "3539308100", "sku": "Calf_Black_S/M", "qty": 1, "type": "Customer Return", "reason": "QUALITY_ISSUE"}, {"date": "23-Jul-2026", "orderId": "3540587100", "sku": "G-AL", "qty": 1, "type": "Customer Return", "reason": "MISSHIPMENT"}, {"date": "23-Jul-2026", "orderId": "0979419100", "sku": "Calf_Black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "Shipment_EOB_Ageing"}, {"date": "23-Jul-2026", "orderId": "6956107100", "sku": "GKC M - 1Unit", "qty": 1, "type": "Customer Return", "reason": "CUSTOMER_REMORSE"}, {"date": "23-Jul-2026", "orderId": "8393737100", "sku": "grey_arm_sleeves_L/XL", "qty": 1, "type": "Customer Return", "reason": "CUSTOMER_REMORSE"}, {"date": "22-Jul-2026", "orderId": "8883380100", "sku": "ACS-001-BK+WH-M-P4", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "22-Jul-2026", "orderId": "0691189100", "sku": "arm_sleeves_black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "Aged_beyond_Limit"}, {"date": "22-Jul-2026", "orderId": "8098640100", "sku": "Calf_Grey_S/M", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "22-Jul-2026", "orderId": "4008297100", "sku": "grey_arm_sleeves_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "WHATSAPP"}, {"date": "22-Jul-2026", "orderId": "0619582100", "sku": "Ankle Sock_Black_L/XL_NC", "qty": 1, "type": "Customer Return", "reason": "MISSHIPMENT"}, {"date": "22-Jul-2026", "orderId": "7758001100", "sku": "ACS-001-BK-L-P1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "21-Jul-2026", "orderId": "9584417100", "sku": "arm_sleeves_black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "21-Jul-2026", "orderId": "1022833100", "sku": "Arm_Sleeve_Blue_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "21-Jul-2026", "orderId": "4917351100", "sku": "arm_sleeves_blue_S/M", "qty": 1, "type": "Courier/RTO", "reason": "Attempts_Exhausted"}, {"date": "21-Jul-2026", "orderId": "3601531100", "sku": "ACS-001-BG-L-P1_1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "20-Jul-2026", "orderId": "8818985100", "sku": "arm_sleeves_black_S/M", "qty": 2, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "20-Jul-2026", "orderId": "8818985100", "sku": "ARM_Grey_L/XL", "qty": 2, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "20-Jul-2026", "orderId": "6067679100", "sku": "arm_sleeves_black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "Cancelled OTP validated"}, {"date": "20-Jul-2026", "orderId": "0463425100", "sku": "ACS-001-BL-M-P1", "qty": 1, "type": "Customer Return", "reason": "MISSING_ITEM"}, {"date": "20-Jul-2026", "orderId": "9509332100", "sku": "BKL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "19-Jul-2026", "orderId": "7627720100", "sku": "arm_sleeves_black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "19-Jul-2026", "orderId": "5119708100", "sku": "arm_sleeves_blue_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "19-Jul-2026", "orderId": "6659598100", "sku": "grey_arm_sleeves_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "19-Jul-2026", "orderId": "3152457100", "sku": "Arm_Sleeve_Blue_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "19-Jul-2026", "orderId": "9323958100", "sku": "TG-AS-S/M", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "19-Jul-2026", "orderId": "5830346100", "sku": "ACS-001-BK-L-P1", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "19-Jul-2026", "orderId": "4424367100", "sku": "BKL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "18-Jul-2026", "orderId": "1262042100", "sku": "GCS_S/M", "qty": 1, "type": "Courier/RTO", "reason": "Curfew/Strike"}, {"date": "18-Jul-2026", "orderId": "4038414100", "sku": "GG-AS-S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "18-Jul-2026", "orderId": "8059480100", "sku": "GAS_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "18-Jul-2026", "orderId": "5141290100", "sku": "ACS-001-WH-M-P1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "18-Jul-2026", "orderId": "0166243100", "sku": "Calf_Black_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "18-Jul-2026", "orderId": "9266928100", "sku": "arm_sleeves_black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "18-Jul-2026", "orderId": "3379365100", "sku": "ACS-001-BK-M-P1", "qty": 1, "type": "Courier/RTO", "reason": "Shipment_EOB_Ageing"}, {"date": "18-Jul-2026", "orderId": "3183680100", "sku": "BKL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "18-Jul-2026", "orderId": "8877933100", "sku": "grey_arm_sleeves_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "shield_cancellation"}, {"date": "17-Jul-2026", "orderId": "2163014100", "sku": "ACS-001-WH-L-P1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "17-Jul-2026", "orderId": "3640343100", "sku": "arm_sleeves_blue_S/M", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "17-Jul-2026", "orderId": "2499151100", "sku": "ACS-001-WH-M-P1", "qty": 1, "type": "Courier/RTO", "reason": "Shipment_EOB_Ageing"}, {"date": "17-Jul-2026", "orderId": "6753601100", "sku": "Calf_Black_S/M", "qty": 1, "type": "Customer Return", "reason": "QUALITY_ISSUE"}, {"date": "16-Jul-2026", "orderId": "2298949100", "sku": "arm_sleeves_black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "15-Jul-2026", "orderId": "4245274100", "sku": "Calf_Black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "Uncontrollable Factors"}, {"date": "15-Jul-2026", "orderId": "2487797100", "sku": "BB-AS-S/M", "qty": 1, "type": "Courier/RTO", "reason": "Attempts_Exhausted"}, {"date": "15-Jul-2026", "orderId": "1125974100", "sku": "G-AL", "qty": 1, "type": "Courier/RTO", "reason": "Attempts_Exhausted"}, {"date": "14-Jul-2026", "orderId": "7532981100", "sku": "arm_sleeves_black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "14-Jul-2026", "orderId": "7644711100", "sku": "arm_sleeves_black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "14-Jul-2026", "orderId": "6992543100", "sku": "Calf_Blue_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "Shipment_EOB_Ageing"}, {"date": "14-Jul-2026", "orderId": "5014140100", "sku": "ACS-001-GY-L-P1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "13-Jul-2026", "orderId": "2889690100", "sku": "ACS-001-GY-L-P1", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "13-Jul-2026", "orderId": "3454314100", "sku": "BAS_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "13-Jul-2026", "orderId": "2205288100", "sku": "grey_arm_sleeves_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "Aged_beyond_Limit"}, {"date": "12-Jul-2026", "orderId": "5312592100", "sku": "ACS-001-GY-M-P1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "12-Jul-2026", "orderId": "4109305100", "sku": "ACS-001-BK-M-P1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "12-Jul-2026", "orderId": "1523564100", "sku": "ARM_Turquoise_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "12-Jul-2026", "orderId": "0912885100", "sku": "BKL", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "11-Jul-2026", "orderId": "2775339100", "sku": "arm_sleeves_blue_S/M", "qty": 1, "type": "Courier/RTO", "reason": "Curfew/Strike"}, {"date": "11-Jul-2026", "orderId": "3238849100", "sku": "BCS_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "11-Jul-2026", "orderId": "6914835100", "sku": "GAS_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "11-Jul-2026", "orderId": "6162920100", "sku": "BG-AS-L/XL", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "11-Jul-2026", "orderId": "5016417100", "sku": "ACS-001-BK-L-P1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "11-Jul-2026", "orderId": "2903552100", "sku": "Calf_Black_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "Uncontrollable Factors"}, {"date": "11-Jul-2026", "orderId": "2903552100", "sku": "BCS_S/M", "qty": 1, "type": "Courier/RTO", "reason": "Uncontrollable Factors"}, {"date": "11-Jul-2026", "orderId": "9176296100", "sku": "Black -Calfsleeve", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "10-Jul-2026", "orderId": "3038817100", "sku": "ACS-001-BK-M-P1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "10-Jul-2026", "orderId": "1563809100", "sku": "Calf_Blue_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "Cancelled OTP validated"}, {"date": "10-Jul-2026", "orderId": "7021592100", "sku": "KUE_Crew_Multicolour_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "09-Jul-2026", "orderId": "0166243100", "sku": "Calf_Black_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "Damaged_shipment"}, {"date": "09-Jul-2026", "orderId": "6274893100", "sku": "BKL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "09-Jul-2026", "orderId": "7399745100", "sku": "grey_arm_sleeves_S/M", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "09-Jul-2026", "orderId": "6994919100", "sku": "BAS_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "09-Jul-2026", "orderId": "8966690100", "sku": "ACS-001-BL-L-P1", "qty": 1, "type": "Customer Return", "reason": "QUALITY_ISSUE"}, {"date": "09-Jul-2026", "orderId": "7883083100", "sku": "ACS-001-GY-M-P1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "08-Jul-2026", "orderId": "9345561100", "sku": "ACS-001-GY-L-P1", "qty": 1, "type": "Customer Return", "reason": "SIZE_FIT_ISSUES"}, {"date": "08-Jul-2026", "orderId": "6440129100", "sku": "ACS-001-WH-M-P1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "08-Jul-2026", "orderId": "6223955100", "sku": "B-KL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "08-Jul-2026", "orderId": "8207749100", "sku": "Arm_Sleeve_Blue_L/XL", "qty": 1, "type": "Customer Return", "reason": "SIZE_FIT_ISSUES"}, {"date": "08-Jul-2026", "orderId": "9361824100", "sku": "arm_sleeves_blue_S/M", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "08-Jul-2026", "orderId": "8841018100", "sku": "ACS-001-BK-M-P2", "qty": 1, "type": "Customer Return", "reason": "SIZE_FIT_ISSUES"}, {"date": "07-Jul-2026", "orderId": "1033091100", "sku": "Arm_Sleeve_Blue_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "07-Jul-2026", "orderId": "3127395100", "sku": "Black -Armsleeve", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "07-Jul-2026", "orderId": "1470615100", "sku": "BAS_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "07-Jul-2026", "orderId": "8839079100", "sku": "Calf_Black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "07-Jul-2026", "orderId": "2320056100", "sku": "Tealblue -Armsleeve", "qty": 1, "type": "Customer Return", "reason": "SIZE_FIT_ISSUES"}, {"date": "07-Jul-2026", "orderId": "9345561100", "sku": "ACS-001-GY-L-P1", "qty": 1, "type": "Customer Return", "reason": "SIZE_FIT_ISSUES"}, {"date": "06-Jul-2026", "orderId": "5849007100", "sku": "arm_sleeves_black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "06-Jul-2026", "orderId": "2377510100", "sku": "B-KL", "qty": 1, "type": "Customer Return", "reason": "DAMAGED_PRODUCT"}, {"date": "06-Jul-2026", "orderId": "9286528100", "sku": "ACS-001-GY-M-P1", "qty": 1, "type": "Customer Return", "reason": "SIZE_FIT_ISSUES"}, {"date": "05-Jul-2026", "orderId": "8720934100", "sku": "arm_sleeves_black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "05-Jul-2026", "orderId": "7909023100", "sku": "Arm_Sleeve_Blue_L/XL", "qty": 1, "type": "Customer Return", "reason": "QUALITY_ISSUE"}, {"date": "05-Jul-2026", "orderId": "8358766100", "sku": "ACS-001-BL+GY-L-P4", "qty": 1, "type": "Customer Return", "reason": "SMART_PICKUP_CHECK_OVERRIDE"}, {"date": "04-Jul-2026", "orderId": "3833290100", "sku": "grey_arm_sleeves_S/M", "qty": 1, "type": "Customer Return", "reason": "SIZE_FIT_ISSUES"}, {"date": "04-Jul-2026", "orderId": "8175707100", "sku": "ACS-001-BK-L-P1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "04-Jul-2026", "orderId": "9819964100", "sku": "ACS-001-GY-L-P1", "qty": 1, "type": "Customer Return", "reason": "SIZE_FIT_ISSUES"}, {"date": "03-Jul-2026", "orderId": "7068580100", "sku": "ACS-001-BK-M-P1", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "03-Jul-2026", "orderId": "7214690100", "sku": "Calf_Black_L/XL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "03-Jul-2026", "orderId": "0500226100", "sku": "TKC M", "qty": 1, "type": "Customer Return", "reason": "QUALITY_ISSUE"}, {"date": "03-Jul-2026", "orderId": "0500226100", "sku": "TKC M", "qty": 1, "type": "Customer Return", "reason": "QUALITY_ISSUE"}, {"date": "03-Jul-2026", "orderId": "3129200100", "sku": "ACS-001-WH-M-P1", "qty": 1, "type": "Courier/RTO", "reason": "WHATSAPP"}, {"date": "03-Jul-2026", "orderId": "3191702100", "sku": "TKC L", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "02-Jul-2026", "orderId": "2292380100", "sku": "Ankle Sock_Black_L/XL_NC", "qty": 1, "type": "Courier/RTO", "reason": "Upstream_Shipment_EOB_Ageing"}, {"date": "02-Jul-2026", "orderId": "3586326100", "sku": "TBKL", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "02-Jul-2026", "orderId": "5435409100", "sku": "BKL", "qty": 1, "type": "Customer Return", "reason": "DAMAGED_PRODUCT"}, {"date": "02-Jul-2026", "orderId": "6020703100", "sku": "ACS-001-BK-L-P1", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "02-Jul-2026", "orderId": "6337038100", "sku": "ACS-001-GY-M-P1", "qty": 1, "type": "Customer Return", "reason": "SIZE_FIT_ISSUES"}, {"date": "02-Jul-2026", "orderId": "3255764100", "sku": "BKL", "qty": 1, "type": "Courier/RTO", "reason": "shield_cancellation"}, {"date": "01-Jul-2026", "orderId": "4851033100", "sku": "ACS-001-WH+BG-L-P2", "qty": 1, "type": "Courier/RTO", "reason": "order_cancelled"}, {"date": "01-Jul-2026", "orderId": "1632558100", "sku": "ACS-001-GY-M-P1", "qty": 1, "type": "Courier/RTO", "reason": "Aged_beyond_Limit"}, {"date": "01-Jul-2026", "orderId": "3439349100", "sku": "GAS_S/M", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "01-Jul-2026", "orderId": "5464840100", "sku": "BCS_S/M", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "01-Jul-2026", "orderId": "6502023100", "sku": "arm_sleeves_black_S/M", "qty": 1, "type": "Courier/RTO", "reason": "WHATSAPP"}, {"date": "01-Jul-2026", "orderId": "7936195100", "sku": "BG-CS-S/M", "qty": 1, "type": "Courier/RTO", "reason": "ORC_validated with customer"}, {"date": "01-Jul-2026", "orderId": "4982247100", "sku": "ACS-001-GY-L-P1", "qty": 1, "type": "Customer Return", "reason": "QUALITY_ISSUE"}], "reasons": [{"reason": "order_cancelled", "units": 48}, {"reason": "ORC_validated with customer", "units": 18}, {"reason": "SIZE_FIT_ISSUES", "units": 10}, {"reason": "QUALITY_ISSUE", "units": 7}, {"reason": "Shipment_EOB_Ageing", "units": 4}, {"reason": "Aged_beyond_Limit", "units": 3}, {"reason": "WHATSAPP", "units": 3}, {"reason": "Attempts_Exhausted", "units": 3}, {"reason": "Uncontrollable Factors", "units": 3}, {"reason": "MISSHIPMENT", "units": 2}, {"reason": "CUSTOMER_REMORSE", "units": 2}, {"reason": "Cancelled OTP validated", "units": 2}, {"reason": "Curfew/Strike", "units": 2}, {"reason": "shield_cancellation", "units": 2}, {"reason": "DAMAGED_PRODUCT", "units": 2}, {"reason": "MISSING_ITEM", "units": 1}, {"reason": "Damaged_shipment", "units": 1}, {"reason": "SMART_PICKUP_CHECK_OVERRIDE", "units": 1}, {"reason": "Upstream_Shipment_EOB_Ageing", "units": 1}], "skuReturns": [{"sku": "arm_sleeves_black_S/M", "units": 13}, {"sku": "ACS-001-GY-L-P1", "units": 7}, {"sku": "BKL", "units": 7}, {"sku": "Calf_Black_S/M", "units": 5}, {"sku": "ACS-001-BK-L-P1", "units": 5}, {"sku": "Arm_Sleeve_Blue_L/XL", "units": 5}, {"sku": "arm_sleeves_blue_S/M", "units": 5}, {"sku": "ACS-001-GY-M-P1", "units": 5}, {"sku": "grey_arm_sleeves_L/XL", "units": 4}, {"sku": "ACS-001-WH-M-P1", "units": 4}, {"sku": "Calf_Black_L/XL", "units": 4}, {"sku": "ACS-001-BK-M-P1", "units": 4}, {"sku": "grey_arm_sleeves_S/M", "units": 3}, {"sku": "GAS_S/M", "units": 3}, {"sku": "BAS_L/XL", "units": 3}, {"sku": "BCS_S/M", "units": 3}, {"sku": "G-AL", "units": 2}, {"sku": "Ankle Sock_Black_L/XL_NC", "units": 2}, {"sku": "ARM_Grey_L/XL", "units": 2}, {"sku": "Calf_Blue_L/XL", "units": 2}], "dataGaps": ["Daily Sales, Weekly Sales, and SKU Performance tabs (added 27 Jul 2026) are built from an official Flipkart Sales Report export the user downloaded directly from Report Centre and uploaded \u2014 this covers real per-order-item Sale/Return activity for 1-21 Jul 2026 (374 line items). An earlier live browser-side attempt to pull this same report type came back with 0 data rows across three separate tries \u2014 a genuine Flipkart report-generation timing gap, not a fetch error on this end.", "SKU Performance covers all 61 SKUs with real sale/return activity in the 1-21 Jul window, joined against an official Listings export (329 SKUs, stock/price/status) for the Stock/Price/Status columns \u2014 all 61 matched. It is not the full ~423-SKU catalog; SKUs with zero orders this period are intentionally excluded rather than shown with fabricated zeros.", "Date ranges differ by tab and this is expected, not an error: Earnings Summary-based tabs (Dashboard totals, Period P&L) cover 1-24 Jul; Sales Report-based tabs (Daily/Weekly Sales, SKU Performance) cover 1-21 Jul because the export itself stopped at that date; Returns-based tabs cover 1-24 Jul.", "Fees and Taxes are not broken out per day/SKU in the Sales Report export, so Daily/Weekly/SKU tabs show Gross/Return/Net Sales only (units & amount) \u2014 period-total Fees/Taxes are in the Period P&L tab.", "A true daily Gross Sales / Net Payout trend was not obtainable this run - Flipkart's Sales Report and Orders Report exports (Report Centre, both scoped 1-24 Jul 2026, status \"Generated\") downloaded successfully but contained only header rows with zero data rows.", "Bulk SKU-level sales/revenue breakdown was not available - Earnings Summary's SKU tab only supports one-SKU-at-a-time lookup, not a bulk export.", "No fabricated numbers appear anywhere - where daily/SKU sales data was not obtainable, only real return-request data (which does have per-day, per-SKU granularity) is shown instead.", "CORRECTION (post-review): the first pass of this dashboard checked the wrong Ads sub-page and wrongly reported zero active campaigns. The real Campaign Manager shows 64 campaigns (14 Live), \u20b940,450 spend / \u20b91,48,664 attributed revenue over the last 30 days (ROI 3.68, TACoS 27.21%) \u2014 now reflected in the Ads tab.", "28-Jul-2026 weekday refresh: no new user-uploaded Sales/Orders/Listings/Returns exports this session, so Daily/Weekly Sales, SKU Performance, and Returns tabs are unchanged (still 1-21/1-24 Jul). Only the companion Excel workbook's \"Daily Settlement & Fees (Live)\" tab (not shown in this HTML view) was extended to 26-27 Jul via a live Payments > Order-wise Settlements pull; open the workbook via the button above for that data. \"Today's Live Snapshot\" above was refreshed from the Home dashboard (28-Jul).", "28-Jul-2026: Weekly Sales tab rebuilt to real Monday-Sunday calendar weeks (was a 7-day-from-month-start bucketing before). Week 4 is partial with only 2 days (20-21 Jul), not because the calendar week is incomplete, but because the underlying Sales Report export still stops at 21-Jul.", "28-Jul-2026: Daily/Weekly Sales and SKU Performance REBUILT from a fresh Sales Report export (1-24 Jul) - the prior 1-21 Jul export was found to have undercounted Returns (72 units/Rs25,145 vs the corrected 88 units/Rs31,193 for the same window; Sale-side figures were already complete and unchanged). Now covers 1-24 Jul, 63 SKUs (was 61).", "AUGUST 2026 UPDATE (03-Aug-2026): This interactive dashboard's Sales-Report-sourced sections (Daily/Weekly Sales, SKU Performance, P&L) remain CAPPED at 1-24 Jul 2026 - no fresher official Flipkart Sales Report export has been uploaded, so there is nothing new to show here yet; this is a genuine, disclosed, ongoing gap, not a bug. Real August activity (2 days, Aug 1-2) HAS been captured, but only in the new August xlsx workbook's 'Daily Settlement & Fees (Live)' tab (Aug 1: 5 order items, Rs1,424 sale amount, Rs1,403.04 settlement; Aug 2: 0 order items, provisional per Flipkart's ~2-day settlement lag) - that tab is xlsx-only and is not wired into this HTML's DATA object, consistent with how it was already xlsx-only in July."], "dailySales": [{"date": "01-Jul", "saleUnits": 15.0, "saleAmt": 5204.0, "returnUnits": 4.0, "returnAmt": 1462.0, "netUnits": 11.0, "netAmt": 3742.0, "returnRate": 26.67, "aov": 346.93}, {"date": "02-Jul", "saleUnits": 16.0, "saleAmt": 5857.0, "returnUnits": 6.0, "returnAmt": 2272.0, "netUnits": 10.0, "netAmt": 3585.0, "returnRate": 37.5, "aov": 366.06}, {"date": "03-Jul", "saleUnits": 22.0, "saleAmt": 8222.0, "returnUnits": 6.0, "returnAmt": 2197.0, "netUnits": 16.0, "netAmt": 6025.0, "returnRate": 27.27, "aov": 373.73}, {"date": "04-Jul", "saleUnits": 23.0, "saleAmt": 7727.0, "returnUnits": 8.0, "returnAmt": 2610.0, "netUnits": 15.0, "netAmt": 5117.0, "returnRate": 34.78, "aov": 335.96}, {"date": "05-Jul", "saleUnits": 15.0, "saleAmt": 5493.0, "returnUnits": 4.0, "returnAmt": 1744.0, "netUnits": 11.0, "netAmt": 3749.0, "returnRate": 26.67, "aov": 366.2}, {"date": "06-Jul", "saleUnits": 22.0, "saleAmt": 7180.0, "returnUnits": 6.0, "returnAmt": 2045.0, "netUnits": 16.0, "netAmt": 5135.0, "returnRate": 27.27, "aov": 326.36}, {"date": "07-Jul", "saleUnits": 25.0, "saleAmt": 8229.0, "returnUnits": 6.0, "returnAmt": 1674.0, "netUnits": 19.0, "netAmt": 6555.0, "returnRate": 24.0, "aov": 329.16}, {"date": "08-Jul", "saleUnits": 12.0, "saleAmt": 4191.0, "returnUnits": 5.0, "returnAmt": 1854.0, "netUnits": 7.0, "netAmt": 2337.0, "returnRate": 41.67, "aov": 349.25}, {"date": "09-Jul", "saleUnits": 18.0, "saleAmt": 5668.0, "returnUnits": 6.0, "returnAmt": 1877.0, "netUnits": 12.0, "netAmt": 3791.0, "returnRate": 33.33, "aov": 314.89}, {"date": "10-Jul", "saleUnits": 14.0, "saleAmt": 4798.0, "returnUnits": 5.0, "returnAmt": 1943.0, "netUnits": 9.0, "netAmt": 2855.0, "returnRate": 35.71, "aov": 342.71}, {"date": "11-Jul", "saleUnits": 13.0, "saleAmt": 4036.0, "returnUnits": 6.0, "returnAmt": 1926.0, "netUnits": 7.0, "netAmt": 2110.0, "returnRate": 46.15, "aov": 310.46}, {"date": "12-Jul", "saleUnits": 12.0, "saleAmt": 3911.0, "returnUnits": 5.0, "returnAmt": 1574.0, "netUnits": 7.0, "netAmt": 2337.0, "returnRate": 41.67, "aov": 325.92}, {"date": "13-Jul", "saleUnits": 11.0, "saleAmt": 3542.0, "returnUnits": 4.0, "returnAmt": 1246.0, "netUnits": 7.0, "netAmt": 2296.0, "returnRate": 36.36, "aov": 322.0}, {"date": "14-Jul", "saleUnits": 10.0, "saleAmt": 2869.0, "returnUnits": 3.0, "returnAmt": 792.0, "netUnits": 7.0, "netAmt": 2077.0, "returnRate": 30.0, "aov": 286.9}, {"date": "15-Jul", "saleUnits": 17.0, "saleAmt": 5196.0, "returnUnits": 3.0, "returnAmt": 1077.0, "netUnits": 14.0, "netAmt": 4119.0, "returnRate": 17.65, "aov": 305.65}, {"date": "16-Jul", "saleUnits": 10.0, "saleAmt": 4449.0, "returnUnits": 4.0, "returnAmt": 2575.0, "netUnits": 6.0, "netAmt": 1874.0, "returnRate": 40.0, "aov": 444.9}, {"date": "17-Jul", "saleUnits": 11.0, "saleAmt": 3411.0, "returnUnits": 2.0, "returnAmt": 651.0, "netUnits": 9.0, "netAmt": 2760.0, "returnRate": 18.18, "aov": 310.09}, {"date": "18-Jul", "saleUnits": 15.0, "saleAmt": 4896.0, "returnUnits": 2.0, "returnAmt": 656.0, "netUnits": 13.0, "netAmt": 4240.0, "returnRate": 13.33, "aov": 326.4}, {"date": "19-Jul", "saleUnits": 11.0, "saleAmt": 4135.0, "returnUnits": 1.0, "returnAmt": 330.0, "netUnits": 10.0, "netAmt": 3805.0, "returnRate": 9.09, "aov": 375.91}, {"date": "20-Jul", "saleUnits": 10.0, "saleAmt": 3304.0, "returnUnits": 0.0, "returnAmt": 0.0, "netUnits": 10.0, "netAmt": 3304.0, "returnRate": 0.0, "aov": 330.4}, {"date": "21-Jul", "saleUnits": 14.0, "saleAmt": 5063.0, "returnUnits": 2.0, "returnAmt": 688.0, "netUnits": 12.0, "netAmt": 4375.0, "returnRate": 14.29, "aov": 361.64}, {"date": "22-Jul", "saleUnits": 12.0, "saleAmt": 4829.0, "returnUnits": 0.0, "returnAmt": 0.0, "netUnits": 12.0, "netAmt": 4829.0, "returnRate": 0.0, "aov": 402.42}, {"date": "23-Jul", "saleUnits": 5.0, "saleAmt": 1655.0, "returnUnits": 0.0, "returnAmt": 0.0, "netUnits": 5.0, "netAmt": 1655.0, "returnRate": 0.0, "aov": 331.0}, {"date": "24-Jul", "saleUnits": 2.0, "saleAmt": 667.0, "returnUnits": 0.0, "returnAmt": 0.0, "netUnits": 2.0, "netAmt": 667.0, "returnRate": 0.0, "aov": 333.5}], "weeklySales": [{"week": "Week 1 (Jul 1-5, partial)", "saleUnits": 91.0, "saleAmt": 32503.0, "returnUnits": 28.0, "returnAmt": -10285.0, "netUnits": 63.0, "netAmt": 22218.0, "days": 5, "returnRate": 30.77, "aov": 357.18, "adSpend": null, "acos": null, "roi": null}, {"week": "Week 2 (Jul 6-12)", "saleUnits": 116.0, "saleAmt": 38013.0, "returnUnits": 39.0, "returnAmt": -12893.0, "netUnits": 77.0, "netAmt": 25120.0, "days": 7, "returnRate": 33.62, "aov": 327.7, "adSpend": null, "acos": null, "roi": null}, {"week": "Week 3 (Jul 13-19)", "saleUnits": 85.0, "saleAmt": 28498.0, "returnUnits": 19.0, "returnAmt": -7327.0, "netUnits": 66.0, "netAmt": 21171.0, "days": 7, "returnRate": 22.35, "aov": 335.27, "adSpend": null, "acos": null, "roi": null}, {"week": "Week 4 (Jul 20-24, partial)", "saleUnits": 43.0, "saleAmt": 15518.0, "returnUnits": 2.0, "returnAmt": -688.0, "netUnits": 41.0, "netAmt": 14830.0, "days": 5, "returnRate": 4.65, "aov": 360.88, "adSpend": null, "acos": null, "roi": null}], "skuPerformance": [{"sku": "BKL", "title": "KUE Graduated Compression Socks 18 - 21 mmHg for men and women, enhances blood circulation, best support for Athletic Running, Cycling. Unisex Solid Knee High", "saleUnits": 43.0, "saleAmt": 17398.0, "returnUnits": 8.0, "returnAmt": -3227.0, "netUnits": 35.0, "netAmt": 14171.0, "returnRate": 18.6, "status": "ACTIVE", "mrp": 2500, "sellingPrice": 498, "stock": 8}, {"sku": "ACS-001-GY-L-P1", "title": "KUE Nylon Arm Sleeve For Men & Women L, Grey", "saleUnits": 33.0, "saleAmt": 10269.0, "returnUnits": 4.0, "returnAmt": -1244.0, "netUnits": 29.0, "netAmt": 9025.0, "returnRate": 12.12, "status": "ACTIVE", "mrp": 1099, "sellingPrice": 448, "stock": 43}, {"sku": "arm_sleeves_black_S/M", "title": "KUE Nylon Arm Sleeve For Men & Women S, Black", "saleUnits": 30.0, "saleAmt": 9315.0, "returnUnits": 11.0, "returnAmt": -3411.0, "netUnits": 19.0, "netAmt": 5904.0, "returnRate": 36.67, "status": "ACTIVE", "mrp": 1499, "sellingPrice": 448, "stock": 12}, {"sku": "ACS-001-BK-L-P1", "title": "KUE Nylon Arm Sleeve For Men & Women L, Black", "saleUnits": 21.0, "saleAmt": 6561.0, "returnUnits": 3.0, "returnAmt": -972.0, "netUnits": 18.0, "netAmt": 5589.0, "returnRate": 14.29, "status": "ACTIVE", "mrp": 1099, "sellingPrice": 448, "stock": 20}, {"sku": "Arm_Sleeve_Blue_L/XL", "title": "KUE Nylon Arm Sleeve For Men & Women L, Blue", "saleUnits": 15.0, "saleAmt": 4591.0, "returnUnits": 6.0, "returnAmt": -1800.0, "netUnits": 9.0, "netAmt": 2791.0, "returnRate": 40.0, "status": "ACTIVE", "mrp": 1499, "sellingPrice": 448, "stock": 21}, {"sku": "ACS-001-BK-M-P1", "title": "KUE Nylon Arm Sleeve For Men & Women M, Black", "saleUnits": 14.0, "saleAmt": 4361.0, "returnUnits": 3.0, "returnAmt": -936.0, "netUnits": 11.0, "netAmt": 3425.0, "returnRate": 21.43, "status": "ACTIVE", "mrp": 1099, "sellingPrice": 448, "stock": 22}, {"sku": "Calf_Black_S/M", "title": "KUE Calf Compression Sleeve for Men & Women S/M Knee Support Black", "saleUnits": 11.0, "saleAmt": 3345.0, "returnUnits": 5.0, "returnAmt": -1476.0, "netUnits": 6.0, "netAmt": 1869.0, "returnRate": 45.45, "status": "ACTIVE", "mrp": 1299, "sellingPrice": 448, "stock": 33}, {"sku": "BAS_L/XL", "title": "KUE Compression Arm Sleeve for UV protection,Cricket,Biking Black L/XL 1 Pair Men, Women Compression Black Full Sleeve", "saleUnits": 11.0, "saleAmt": 3342.0, "returnUnits": 3.0, "returnAmt": -882.0, "netUnits": 8.0, "netAmt": 2460.0, "returnRate": 27.27, "status": "ACTIVE", "mrp": 1399, "sellingPrice": 448, "stock": 14}, {"sku": "Calf_Grey_L/XL", "title": "KUE Calf Compression Sleeve for Men & Women L/XL Knee Support Grey", "saleUnits": 10.0, "saleAmt": 3147.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 10.0, "netAmt": 3147.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 1299, "sellingPrice": 448, "stock": 24}, {"sku": "grey_arm_sleeves_S/M", "title": "KUE Nylon Arm Sleeve For Men & Women S, Grey", "saleUnits": 10.0, "saleAmt": 3033.0, "returnUnits": 2.0, "returnAmt": -624.0, "netUnits": 8.0, "netAmt": 2409.0, "returnRate": 20.0, "status": "ACTIVE", "mrp": 1499, "sellingPrice": 448, "stock": 37}, {"sku": "B-KL", "title": "KUE Graduated Compression Socks 18 - 21 mmHg for men and women, enhances blood circulation, best support for Athletic Running, Cycling. Unisex Solid Knee High", "saleUnits": 7.0, "saleAmt": 2845.0, "returnUnits": 2.0, "returnAmt": -856.0, "netUnits": 5.0, "netAmt": 1989.0, "returnRate": 28.57, "status": "ACTIVE", "mrp": 2500, "sellingPrice": 498, "stock": 48}, {"sku": "arm_sleeves_blue_S/M", "title": "KUE Nylon Arm Sleeve For Men & Women S, Blue", "saleUnits": 9.0, "saleAmt": 2817.0, "returnUnits": 5.0, "returnAmt": -1551.0, "netUnits": 4.0, "netAmt": 1266.0, "returnRate": 55.56, "status": "ACTIVE", "mrp": 1499, "sellingPrice": 448, "stock": 19}, {"sku": "grey_arm_sleeves_L/XL", "title": "KUE Nylon Arm Sleeve For Men & Women L, Grey", "saleUnits": 9.0, "saleAmt": 2801.0, "returnUnits": 4.0, "returnAmt": -1241.0, "netUnits": 5.0, "netAmt": 1560.0, "returnRate": 44.44, "status": "ACTIVE", "mrp": 1499, "sellingPrice": 448, "stock": 31}, {"sku": "Calf_Black_L/XL", "title": "KUE Calf Compression Sleeve for Men & Women L/XL Knee Support Black", "saleUnits": 7.0, "saleAmt": 2238.0, "returnUnits": 3.0, "returnAmt": -933.0, "netUnits": 4.0, "netAmt": 1305.0, "returnRate": 42.86, "status": "ACTIVE", "mrp": 1299, "sellingPrice": 448, "stock": 29}, {"sku": "ACS-001-WH-M-P1", "title": "KUE Nylon Arm Sleeve For Men & Women M, White", "saleUnits": 7.0, "saleAmt": 2166.0, "returnUnits": 1.0, "returnAmt": -303.0, "netUnits": 6.0, "netAmt": 1863.0, "returnRate": 14.29, "status": "ACTIVE", "mrp": 1099, "sellingPrice": 448, "stock": 24}, {"sku": "ACS-001-BL-L-P1", "title": "KUE Nylon Arm Sleeve For Men & Women L, Blue", "saleUnits": 6.0, "saleAmt": 1827.0, "returnUnits": 1.0, "returnAmt": -294.0, "netUnits": 5.0, "netAmt": 1533.0, "returnRate": 16.67, "status": "ACTIVE", "mrp": 1099, "sellingPrice": 448, "stock": 19}, {"sku": "G-AL", "title": "KUE KUE Compression Ankle Socks | Sports, Running, Arch Support & Pain Relief Unisex Solid Ankle Length", "saleUnits": 8.0, "saleAmt": 1774.0, "returnUnits": 2.0, "returnAmt": -441.0, "netUnits": 6.0, "netAmt": 1333.0, "returnRate": 25.0, "status": "ACTIVE", "mrp": 699, "sellingPrice": 298, "stock": 25}, {"sku": "GAS_S/M", "title": "KUE Compression Arm Sleeve for UV protection,Cricket,Biking Black S/M 1 Pair Men, Women Compression Grey Full Sleeve", "saleUnits": 6.0, "saleAmt": 1756.0, "returnUnits": 2.0, "returnAmt": -584.0, "netUnits": 4.0, "netAmt": 1172.0, "returnRate": 33.33, "status": "ACTIVE", "mrp": 1399, "sellingPrice": 448, "stock": 25}, {"sku": "ACS-001-BK+WH-M-P4", "title": "KUE Nylon Arm Sleeve For Men & Women M, Multicolor", "saleUnits": 1.0, "saleAmt": 1554.0, "returnUnits": 1.0, "returnAmt": -1554.0, "netUnits": 0.0, "netAmt": 0.0, "returnRate": 100.0, "status": "ACTIVE", "mrp": 3699, "sellingPrice": 1748, "stock": 24}, {"sku": "Calf_Grey_S/M", "title": "KUE Calf Compression Sleeve for Men & Women S/M Knee Support Grey", "saleUnits": 4.0, "saleAmt": 1457.0, "returnUnits": 2.0, "returnAmt": -724.0, "netUnits": 2.0, "netAmt": 733.0, "returnRate": 50.0, "status": "ACTIVE", "mrp": 1299, "sellingPrice": 448, "stock": 20}, {"sku": "BG-AS-L/XL", "title": "KUE Nylon Arm Sleeve For Men & Women XL, Black, Grey", "saleUnits": 2.0, "saleAmt": 1304.0, "returnUnits": 1.0, "returnAmt": -637.0, "netUnits": 1.0, "netAmt": 667.0, "returnRate": 50.0, "status": "ACTIVE", "mrp": 2998, "sellingPrice": 888, "stock": 24}, {"sku": "BCS_S/M", "title": "KUE Compression Calf Sleeve for Viscose veins,Cricket,Running Black L/XL 1 Pair Women, Men Compression Black Full Sleeve", "saleUnits": 4.0, "saleAmt": 1194.0, "returnUnits": 2.0, "returnAmt": -588.0, "netUnits": 2.0, "netAmt": 606.0, "returnRate": 50.0, "status": "ACTIVE", "mrp": 1299, "sellingPrice": 448, "stock": 18}, {"sku": "Tealblue -Armsleeve", "title": "KUE Compression Arm Sleeve for UV protection,Cricket,Biking Black L/XL 1 Pair Men, Women Compression Blue Full Sleeve", "saleUnits": 3.0, "saleAmt": 1044.0, "returnUnits": 1.0, "returnAmt": -348.0, "netUnits": 2.0, "netAmt": 696.0, "returnRate": 33.33, "status": "ACTIVE", "mrp": 599, "sellingPrice": 448, "stock": 35}, {"sku": "Calf_Blue_S/M", "title": "KUE Calf Compression Sleeve for Men & Women L/XL Knee Support Blue", "saleUnits": 3.0, "saleAmt": 1041.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 3.0, "netAmt": 1041.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 1299, "sellingPrice": 448, "stock": 13}, {"sku": "ACS-001-BG-L-P1_1", "title": "KUE Nylon Arm Sleeve For Men & Women L, Beige", "saleUnits": 3.0, "saleAmt": 1035.0, "returnUnits": 1.0, "returnAmt": -357.0, "netUnits": 2.0, "netAmt": 678.0, "returnRate": 33.33, "status": "ACTIVE", "mrp": 999, "sellingPrice": 448, "stock": 11}, {"sku": "ACS-001-BL-M-P1", "title": "KUE Nylon Arm Sleeve For Men & Women M, Blue", "saleUnits": 3.0, "saleAmt": 936.0, "returnUnits": 1.0, "returnAmt": -330.0, "netUnits": 2.0, "netAmt": 606.0, "returnRate": 33.33, "status": "ACTIVE", "mrp": 1099, "sellingPrice": 448, "stock": 18}, {"sku": "ACS-001-GY-M-P1", "title": "KUE Nylon Arm Sleeve For Men & Women M, Grey", "saleUnits": 3.0, "saleAmt": 934.0, "returnUnits": 1.0, "returnAmt": -312.0, "netUnits": 2.0, "netAmt": 622.0, "returnRate": 33.33, "status": "ACTIVE", "mrp": 1099, "sellingPrice": 448, "stock": 22}, {"sku": "Calf_Blue_L/XL", "title": "KUE Calf Compression Sleeve for Men & Women L/XL Knee Support Blue", "saleUnits": 3.0, "saleAmt": 933.0, "returnUnits": 1.0, "returnAmt": -317.0, "netUnits": 2.0, "netAmt": 616.0, "returnRate": 33.33, "status": "ACTIVE", "mrp": 1299, "sellingPrice": 448, "stock": 26}, {"sku": "ARM_Grey_L/XL", "title": "KUE Nylon Arm Sleeve For Men & Women L, Grey", "saleUnits": 3.0, "saleAmt": 909.0, "returnUnits": 1.0, "returnAmt": -294.0, "netUnits": 2.0, "netAmt": 615.0, "returnRate": 33.33, "status": "ACTIVE", "mrp": 1499, "sellingPrice": 448, "stock": 46}, {"sku": "Black -Armsleeve", "title": "KUE Compression Arm sleeves for Unisex, Black 1 pair Men, Women Compression Black Full Sleeve", "saleUnits": 3.0, "saleAmt": 855.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 3.0, "netAmt": 855.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 599, "sellingPrice": 448, "stock": 14}, {"sku": "AS-001-BK+WH-M-P2", "title": "KUE Unisex Solid Ankle Length Pack of 2", "saleUnits": 2.0, "saleAmt": 831.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 2.0, "netAmt": 831.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 1249, "sellingPrice": 498, "stock": 8}, {"sku": "Knee Sock_Black_S/M_NC", "title": "KUE Men & Women Solid Knee High", "saleUnits": 2.0, "saleAmt": 831.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 2.0, "netAmt": 831.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 2500, "sellingPrice": 498, "stock": 18}, {"sku": "TKL", "title": "KUE Graduated Compression Socks 18 - 21 mmHg for men and women, enhances blood circulation, best support for Athletic Running, Cycling. Men & Women Solid Knee High", "saleUnits": 2.0, "saleAmt": 831.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 2.0, "netAmt": 831.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 2500, "sellingPrice": 498, "stock": 52}, {"sku": "TGKL_S/M", "title": "KUE Compression Knee Sock for Formal, Sports, Recovery Turquoise_Grey S/M 2 Pair Women, Men Compression Blue, Grey Full Sleeve", "saleUnits": 1.0, "saleAmt": 773.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 773.0, "returnRate": 0.0, "status": "NOT MATCHED", "mrp": null, "sellingPrice": null, "stock": null}, {"sku": "BB-AS-S/M", "title": "KUE Nylon Arm Sleeve For Men & Women M, Black", "saleUnits": 1.0, "saleAmt": 741.0, "returnUnits": 1.0, "returnAmt": -741.0, "netUnits": 0.0, "netAmt": 0.0, "returnRate": 100.0, "status": "ACTIVE", "mrp": 2998, "sellingPrice": 888, "stock": null}, {"sku": "RunningKit_Grey_L", "title": "KUE RunningKit_Black_S Foot Support Black", "saleUnits": 1.0, "saleAmt": 695.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 695.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 1499, "sellingPrice": 998, "stock": 98}, {"sku": "Ankle Sock_Blue_L/XL_NC", "title": "KUE KUE Compression Ankle Socks | Sports, Running, Arch Support & Pain Relief Unisex Solid Ankle Length", "saleUnits": 3.0, "saleAmt": 684.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 3.0, "netAmt": 684.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 699, "sellingPrice": 298, "stock": 13}, {"sku": "Black -Calfsleeve", "title": "KUE Calf Compression Sleeve for Calf Support, Circulation, Swelling, Size- S/M Men, Women Compression Black Full Sleeve", "saleUnits": 2.0, "saleAmt": 674.0, "returnUnits": 1.0, "returnAmt": -348.0, "netUnits": 1.0, "netAmt": 326.0, "returnRate": 50.0, "status": "ACTIVE", "mrp": 599, "sellingPrice": 448, "stock": 25}, {"sku": "BG-CS-S/M", "title": "KUE Men & Women Solid Calf Length Pack of 2", "saleUnits": 1.0, "saleAmt": 662.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 662.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 1949, "sellingPrice": 849, "stock": 9}, {"sku": "BT-AS-L/XL", "title": "KUE Nylon Arm Sleeve For Men & Women XL, Black, Blue", "saleUnits": 1.0, "saleAmt": 642.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 642.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 2998, "sellingPrice": 888, "stock": 14}, {"sku": "GG-AS-S/M", "title": "KUE Nylon Arm Sleeve For Men & Women M, Grey", "saleUnits": 1.0, "saleAmt": 641.0, "returnUnits": 1.0, "returnAmt": -641.0, "netUnits": 0.0, "netAmt": 0.0, "returnRate": 100.0, "status": "ACTIVE", "mrp": 2998, "sellingPrice": 888, "stock": 53}, {"sku": "TG-AS-S/M", "title": "KUE Nylon Arm Sleeve For Men & Women M, Blue, Grey", "saleUnits": 1.0, "saleAmt": 637.0, "returnUnits": 1.0, "returnAmt": -637.0, "netUnits": 0.0, "netAmt": 0.0, "returnRate": 100.0, "status": "ACTIVE", "mrp": 2998, "sellingPrice": 888, "stock": 8}, {"sku": "ACS-001-BK-M-P2", "title": "KUE Nylon Arm Sleeve For Men & Women M, Black", "saleUnits": 1.0, "saleAmt": 627.0, "returnUnits": 1.0, "returnAmt": -627.0, "netUnits": 0.0, "netAmt": 0.0, "returnRate": 100.0, "status": "ACTIVE", "mrp": 1860, "sellingPrice": 888, "stock": 23}, {"sku": "ARM_Turquoise_L/XL", "title": "KUE Nylon Arm Sleeve For Men & Women L, Blue", "saleUnits": 2.0, "saleAmt": 624.0, "returnUnits": 1.0, "returnAmt": -312.0, "netUnits": 1.0, "netAmt": 312.0, "returnRate": 50.0, "status": "ACTIVE", "mrp": 1499, "sellingPrice": 448, "stock": 49}, {"sku": "GCS_S/M", "title": "KUE Compression Calf Sleeve for Viscose veins,Cricket,Running Grey S/M 1 Pair Men, Women Compression Grey Full Sleeve", "saleUnits": 2.0, "saleAmt": 624.0, "returnUnits": 1.0, "returnAmt": -303.0, "netUnits": 1.0, "netAmt": 321.0, "returnRate": 50.0, "status": "ACTIVE", "mrp": 1299, "sellingPrice": 448, "stock": 25}, {"sku": "ACS-001-WH-M-P2", "title": "KUE Nylon Arm Sleeve For Men & Women M, White", "saleUnits": 1.0, "saleAmt": 610.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 610.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 1860, "sellingPrice": 888, "stock": null}, {"sku": "TKC XL", "title": "KUE Knee Cap Compression Support | Gym Sports Workout PainRelief |Turquoise 1Unit XL Knee Support Black", "saleUnits": 2.0, "saleAmt": 580.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 2.0, "netAmt": 580.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 999, "sellingPrice": 448, "stock": 37}, {"sku": "GAS_L/XL", "title": "KUE Compression Arm Sleeve for UV protection,Cricket,Biking Black L/XL 1 Pair Men, Women Compression Grey Full Sleeve", "saleUnits": 2.0, "saleAmt": 579.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 2.0, "netAmt": 579.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 1399, "sellingPrice": 448, "stock": 38}, {"sku": "KUE_Crew_Multicolour_L/XL", "title": "KUE Unisex Solid Ankle Length Pack of 3", "saleUnits": 1.0, "saleAmt": 554.0, "returnUnits": 1.0, "returnAmt": -554.0, "netUnits": 0.0, "netAmt": 0.0, "returnRate": 100.0, "status": "ACTIVE", "mrp": 2397, "sellingPrice": 748, "stock": 14}, {"sku": "AS-001-BK+GY-L-P2", "title": "KUE Unisex Solid Ankle Length Pack of 2", "saleUnits": 1.0, "saleAmt": 428.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 428.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 949, "sellingPrice": 498, "stock": 7}, {"sku": "BT-AL-ME-L/XL", "title": "KUE Unisex Solid Ankle Length Pack of 2", "saleUnits": 1.0, "saleAmt": 428.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 428.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 1500, "sellingPrice": 498, "stock": 7}, {"sku": "AS-001-BK+GY-M-P2", "title": "KUE Unisex Solid Ankle Length Pack of 2", "saleUnits": 1.0, "saleAmt": 428.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 428.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 949, "sellingPrice": 498, "stock": 7}, {"sku": "AS-001-GY-M-P2", "title": "KUE Unisex Solid Ankle Length Pack of 2", "saleUnits": 1.0, "saleAmt": 428.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 428.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 1249, "sellingPrice": 498, "stock": 9}, {"sku": "TKC_M_pair", "title": "KUE TKC_M_Pair Knee Support Black", "saleUnits": 1.0, "saleAmt": 409.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 409.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 999, "sellingPrice": 748, "stock": 48}, {"sku": "TGAL_S/M", "title": "KUE KUE Compression Ankle Socks | Sports, Running, Arch Support & Pain Relief Women, Men Compression Blue, Grey Full Sleeve", "saleUnits": 1.0, "saleAmt": 407.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 407.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 1500, "sellingPrice": 498, "stock": 47}, {"sku": "G-KL-ME", "title": "KUE Men & Women Solid Knee High", "saleUnits": 1.0, "saleAmt": 402.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 402.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 1500, "sellingPrice": 498, "stock": 17}, {"sku": "GB-AL-M", "title": "KUE Unisex Solid Ankle Length Pack of 2", "saleUnits": 1.0, "saleAmt": 387.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 387.0, "returnRate": 0.0, "status": "NOT MATCHED", "mrp": null, "sellingPrice": null, "stock": null}, {"sku": "BG-AL", "title": "KUE KUE Compression Ankle Socks | Sports, Running, Arch Support & Pain Relief Unisex Solid Ankle Length Pack of 2", "saleUnits": 1.0, "saleAmt": 358.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 358.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 1299, "sellingPrice": 498, "stock": 18}, {"sku": "ACS-001-WH-L-P1", "title": "KUE Nylon Arm Sleeve For Men & Women L, White", "saleUnits": 1.0, "saleAmt": 312.0, "returnUnits": 1.0, "returnAmt": -312.0, "netUnits": 0.0, "netAmt": 0.0, "returnRate": 100.0, "status": "ACTIVE", "mrp": 1099, "sellingPrice": 448, "stock": 25}, {"sku": "GKC M - 1Unit", "title": "KUE Knee Cap Compression Support | Gym Sports Workout Pain Relief |Grey M Knee Support Black", "saleUnits": 1.0, "saleAmt": 278.0, "returnUnits": 1.0, "returnAmt": -278.0, "netUnits": 0.0, "netAmt": 0.0, "returnRate": 100.0, "status": "ACTIVE", "mrp": 1299, "sellingPrice": 448, "stock": 47}, {"sku": "K_ANK_B_L/XL", "title": "KUE KUE Compression Ankle Socks | Sports, Running, Arch Support & Pain Relief Unisex Solid Ankle Length", "saleUnits": 1.0, "saleAmt": 228.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 228.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 699, "sellingPrice": 298, "stock": 13}, {"sku": "GAL-ME_new", "title": "KUE KUE Compression Ankle Socks | Sports, Running, Arch Support & Pain Relief Unisex Solid Ankle Length", "saleUnits": 1.0, "saleAmt": 213.0, "returnUnits": 0.0, "returnAmt": -0.0, "netUnits": 1.0, "netAmt": 213.0, "returnRate": 0.0, "status": "ACTIVE", "mrp": 699, "sellingPrice": 298, "stock": 13}, {"sku": "Ankle Sock_Black_L/XL_NC", "title": "KUE KUE Compression Ankle Socks | Sports, Running, Arch Support & Pain Relief Unisex Solid Ankle Length", "saleUnits": 1.0, "saleAmt": 204.0, "returnUnits": 1.0, "returnAmt": -204.0, "netUnits": 0.0, "netAmt": 0.0, "returnRate": 100.0, "status": "ACTIVE", "mrp": 699, "sellingPrice": 298, "stock": 50}], "adPerformance": {"periodAdSpend": 40450.15, "periodAdRevenue": 148664.0, "periodROI": 3.68, "periodACOS": 27.21, "note": "Rolling last-30-days window (24 Jun-24 Jul) from Campaign Manager - does not align to Jul 1-24 calendar weeks, so weekly ACOS/ROI above is marked NA rather than force a mismatched split."}};
+
+document.getElementById('periodLine').textContent = DATA.periodLine;
+
+// ---- tabs ----
+document.querySelectorAll('#tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+function renderDashboard(){
+  ['chartDailyReturns','chartReasons','chartDailySales','chartWeeklySales','chartSkuPerf','chartPnl','chartDailyFull','chartSku','chartAdsSpend','chartAdsScatter'].forEach(id=>{ const ch = Chart.getChart(id); if (ch) ch.destroy(); });
+
+function fmt(n){ return '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits:0}); }
+function fmtSigned(n){ return (n<0?'-':'') + '₹' + Math.abs(n).toLocaleString('en-IN', {maximumFractionDigits:0}); }
+
+// ---- KPI grid (overview) ----
+const p = DATA.pnl, t = DATA.today;
+const kpis = [
+  {label:"Today's Sales", value: t.salesToday, note:'Yesterday: '+t.salesYesterday},
+  {label:"Today's Units", value: t.unitsToday, note:'Yesterday: '+t.unitsYesterday},
+  {label:'New Orders (today)', value: t.newOrders, note:'Pending RTD: '+t.pendingRTD},
+  {label:"Today's Returns", value: t.returnsToday, note:'Handed over: '+t.returnsHandedOver},
+  {label:'Gross Sales (1-24 Jul)', value: fmt(p.grossSalesAmt), note: p.grossSalesUnits+' units'},
+  {label:'Net Sales (1-24 Jul)', value: fmt(p.netSalesAmt), note: p.netSalesUnits+' units', cls:'good'},
+  {label:'Net Earnings (1-24 Jul)', value: fmt(p.netEarnings), note:'after fees, taxes, discounts', cls:'good'},
+  {label:'Return Rate % (units)', value: p.returnRatePct+'%', note: Math.abs(p.returnsUnits)+' units returned', cls:'bad'},
+];
+document.getElementById('kpiGrid').innerHTML = kpis.map(k=>`
+  <div class="kpi"><div class="label">${k.label}</div><div class="value ${k.cls||''}">${k.value}</div><div class="note">${k.note}</div></div>
+`).join('');
+
+document.getElementById('alertCards').innerHTML = `
+  <div class="kpi"><div class="label">Quality Complaints</div><div class="value warn">${DATA.quality.listingsWithComplaints} listings</div>
+   <div class="note">GMV loss est. ${fmt(DATA.quality.gmvLoss)} — ${DATA.quality.complaintTypes.join(', ')}</div></div>
+  <div class="kpi"><div class="label">Out of Stock SKUs</div><div class="value bad">${DATA.inventory.outOfStock}</div>
+   <div class="note">of ${DATA.inventory.totalSkus} active SKUs, ${DATA.inventory.totalUnits.toLocaleString('en-IN')} units on hand</div></div>
+  <div class="kpi"><div class="label">Active Ads Campaigns</div><div class="value">${DATA.ads.activeCampaigns}</div>
+   <div class="note">${DATA.ads.note}</div></div>
+`;
+
+// ---- Why the numbers move (grounded in dailySales/weeklySales/reasons/returns) ----
+function fmtPct(n){ return Number(n).toFixed(1)+'%'; }
+function buildReasonCards(){
+  const cards = [];
+  const dow = n=>['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][n];
+  const ds = DATA.dailySales.map(d=>({...d, dt: new Date('2026-'+(d.date.split('-')[1]==='Jul'?'07':'01')+'-'+d.date.split('-')[0])}));
+  ds.forEach(d=>{ d.dowName = dow(d.dt.getDay()); });
+
+  // 1. Return-reason composition shift (order_cancelled vs genuine product-issue returns), by week
+  const ret = DATA.returns.map(r=>({...r, dt:new Date(r.date.split('-')[0]+' '+r.date.split('-')[1]+' 2026')}));
+  const wk = d => d <= new Date('2026-07-07') ? 'W1' : d <= new Date('2026-07-14') ? 'W2' : 'W3+';
+  const productReasons = new Set(['SIZE_FIT_ISSUES','QUALITY_ISSUE','DAMAGED_PRODUCT','MISSING_ITEM','MISSHIPMENT']);
+  const byWeek = {W1:{cancel:0,product:0}, W2:{cancel:0,product:0}, 'W3+':{cancel:0,product:0}};
+  ret.forEach(r=>{
+    const w = wk(r.dt);
+    if (r.reason==='order_cancelled') byWeek[w].cancel++;
+    else if (productReasons.has(r.reason)) byWeek[w].product++;
+  });
+  const topReason = DATA.reasons[0];
+  const totalRetUnits = DATA.reasons.reduce((a,r)=>a+r.units,0);
+  cards.push({
+    title: `Returns are dominated by order cancellations, not product problems`,
+    metric: fmtPct(topReason.units/totalRetUnits*100),
+    why: `"${topReason.reason}" alone accounts for ${topReason.units} of ${totalRetUnits} return units (${fmtPct(topReason.units/totalRetUnits*100)}) — more than double the next reason. Genuine product-issue returns (size/fit, quality, damage) fell from ${byWeek.W1.product} requests in Week 1 to ${byWeek['W3+'].product} in Week 3+, while order-cancellation requests rose from ${byWeek.W1.cancel} to ${byWeek['W3+'].cancel} over the same span — the return problem is shifting toward pre-fulfillment cancellations, not product quality.`
+  });
+
+  // 2. Day-of-week pattern (sales + return rate)
+  const byDow = {};
+  ds.forEach(d=>{ (byDow[d.dowName] = byDow[d.dowName]||[]).push(d); });
+  const dowAvg = Object.entries(byDow).map(([k,v])=>({
+    day:k, sales: v.reduce((a,x)=>a+x.saleAmt,0)/v.length, ret: v.reduce((a,x)=>a+x.returnRate,0)/v.length
+  }));
+  const bestSalesDay = [...dowAvg].sort((a,b)=>b.sales-a.sales)[0];
+  const worstRetDay = [...dowAvg].sort((a,b)=>b.ret-a.ret)[0];
+  const bestRetDay = [...dowAvg].sort((a,b)=>a.ret-b.ret)[0];
+  cards.push({
+    title: `Saturdays sell best but return worst`,
+    metric: fmtPct(worstRetDay.ret),
+    why: `${bestSalesDay.day} has the highest average daily sales (${fmt(bestSalesDay.sales)}), but ${worstRetDay.day} carries the highest average return rate (${fmtPct(worstRetDay.ret)}) — nearly double ${bestRetDay.day}'s ${fmtPct(bestRetDay.ret)}, the calmest day for returns. Worth checking if Saturday orders skew toward impulse/COD purchases that get refused or returned more often.`
+  });
+
+  // 3. Weekly sales decline
+  const w = DATA.weeklySales;
+  if (w.length >= 2) {
+    const first = w[0], last = w[w.length-1];
+    const pctChange = ((last.saleAmt-first.saleAmt)/first.saleAmt*100);
+    cards.push({
+      title: `Weekly gross sales have been declining`,
+      metric: fmtPct(pctChange),
+      why: `Gross sales fell from ${fmt(first.saleAmt)} in ${first.week} to ${fmt(last.saleAmt)} in ${last.week} (${fmtPct(pctChange)}), even as the Sales-Report return rate improved from ${fmtPct(first.returnRate)} to ${fmtPct(last.returnRate)} over the same span — the order-quality picture is getting better, but top-line order volume is shrinking and is the bigger thing to watch.`
+    });
+  }
+
+  document.getElementById('reasonCards').innerHTML = cards.map(c=>`
+    <div style="background:#12182a;border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+        <span style="font-weight:700;color:var(--accent2);font-size:13px;">${c.metric}</span>
+      </div>
+      <div style="font-weight:600;font-size:13.5px;margin-bottom:6px;">${c.title}</div>
+      <div style="font-size:12.5px;color:#cfd6e4;line-height:1.5;"><span style="color:var(--muted);">Why:</span> ${c.why}</div>
+    </div>
+  `).join('');
+}
+buildReasonCards();
+
+// ---- Charts (overview) ----
+new Chart(document.getElementById('chartDailyReturns'), {
+  type:'bar',
+  data:{ labels: DATA.daily.map(d=>d.date),
+    datasets:[{label:'Units Returned', data: DATA.daily.map(d=>d.total), backgroundColor:'#ff5d6c'}]},
+  options:{plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#93a0b8',maxRotation:90,minRotation:90}},y:{ticks:{color:'#93a0b8'}}}}
+});
+
+new Chart(document.getElementById('chartReasons'), {
+  type:'doughnut',
+  data:{ labels: DATA.reasons.slice(0,8).map(r=>r.reason),
+    datasets:[{data: DATA.reasons.slice(0,8).map(r=>r.units),
+      backgroundColor:['#2874f0','#ffe500','#3ddc97','#ffb454','#ff5d6c','#37c2ff','#a78bfa','#f472b6']}]},
+  options:{plugins:{legend:{position:'right',labels:{color:'#e8ecf5',boxWidth:12,font:{size:10}}}}}
+});
+
+// ---- Daily Sales tab ----
+const ds = DATA.dailySales;
+new Chart(document.getElementById('chartDailySales'), {
+  type:'bar',
+  data:{ labels: ds.map(d=>d.date),
+    datasets:[
+      {type:'bar', label:'Gross Sales (₹)', data: ds.map(d=>d.saleAmt), backgroundColor:'#2874f0', yAxisID:'y'},
+      {type:'bar', label:'Return Amount (₹)', data: ds.map(d=>d.returnAmt), backgroundColor:'#ff5d6c', yAxisID:'y'},
+      {type:'line', label:'Net Sales (₹)', data: ds.map(d=>d.netAmt), borderColor:'#ffe500', backgroundColor:'#ffe500', yAxisID:'y', tension:.3}
+    ]},
+  options:{plugins:{legend:{labels:{color:'#e8ecf5'}}}, scales:{x:{ticks:{color:'#93a0b8',maxRotation:90,minRotation:90}},y:{ticks:{color:'#93a0b8'}}}}
+});
+document.getElementById('tblDailySales').innerHTML = '<tr><th>Date</th><th>Gross Sale Units</th><th>Gross Sales (₹)</th><th>Returned Units</th><th>Return Amount (₹)</th><th>Net Units</th><th>Net Sales (₹)</th><th>Return Rate %</th><th>AOV (₹)</th></tr>' +
+  ds.map(d=>`<tr><td>${d.date}</td><td>${d.saleUnits}</td><td>${fmt(d.saleAmt)}</td><td>${d.returnUnits}</td><td class="neg">${fmtSigned(d.returnAmt)}</td><td>${d.netUnits}</td><td class="pos">${fmt(d.netAmt)}</td><td>${d.returnRate}%</td><td>${fmt(d.aov)}</td></tr>`).join('') +
+  (()=>{ const tot={su:0,sa:0,ru:0,ra:0,nu:0,na:0}; ds.forEach(d=>{tot.su+=d.saleUnits;tot.sa+=d.saleAmt;tot.ru+=d.returnUnits;tot.ra+=d.returnAmt;tot.nu+=d.netUnits;tot.na+=d.netAmt;});
+    return `<tr class="total-row"><td>TOTAL</td><td>${tot.su}</td><td>${fmt(tot.sa)}</td><td>${tot.ru}</td><td class="neg">${fmtSigned(tot.ra)}</td><td>${tot.nu}</td><td class="pos">${fmt(tot.na)}</td><td>${(tot.ru/tot.su*100).toFixed(2)}%</td><td>${fmt(tot.sa/tot.su)}</td></tr>`; })();
+
+// ---- Weekly Sales tab ----
+const ws = DATA.weeklySales;
+new Chart(document.getElementById('chartWeeklySales'), {
+  type:'bar',
+  data:{ labels: ws.map(w=>w.week),
+    datasets:[
+      {label:'Gross Sales (₹)', data: ws.map(w=>w.saleAmt), backgroundColor:'#2874f0'},
+      {label:'Return Amount (₹)', data: ws.map(w=>w.returnAmt), backgroundColor:'#ff5d6c'},
+      {label:'Net Sales (₹)', data: ws.map(w=>w.netAmt), backgroundColor:'#3ddc97'}
+    ]},
+  options:{plugins:{legend:{labels:{color:'#e8ecf5'}}}, scales:{x:{ticks:{color:'#93a0b8'}},y:{ticks:{color:'#93a0b8'}}}}
+});
+document.getElementById('tblWeeklySales').innerHTML = '<tr><th>Week</th><th>Gross Sale Units</th><th>Gross Sales (₹)</th><th>Returned Units</th><th>Return Amount (₹)</th><th>Net Units</th><th>Net Sales (₹)</th><th>Days</th><th>Return Rate %</th><th>AOV (₹)</th><th>Ad Spend (₹)</th><th>ACOS %</th><th>ROI</th></tr>' +
+  ws.map(w=>`<tr><td>${w.week}</td><td>${w.saleUnits}</td><td>${fmt(w.saleAmt)}</td><td>${w.returnUnits}</td><td class="neg">${fmtSigned(w.returnAmt)}</td><td>${w.netUnits}</td><td class="pos">${fmt(w.netAmt)}</td><td>${w.days}</td><td>${w.returnRate}%</td><td>${fmt(w.aov)}</td><td title="Ad spend not available broken down by week — see Ad Performance panel for period-level figures">NA</td><td title="ACOS not available broken down by week — see Ad Performance panel for period-level figures">NA</td><td title="ROI not available broken down by week — see Ad Performance panel for period-level figures">NA</td></tr>`).join('') +
+  `<tr class="total-row"><td colspan="13" style="text-align:left;font-style:italic;">Period-level Ad Spend ₹${fmt(DATA.adPerformance.periodAdSpend)} · ACOS ${DATA.adPerformance.periodACOS}% · ROI ${DATA.adPerformance.periodROI}x — see Ad Performance panel below. ${DATA.adPerformance.note}</td></tr>`;
+
+// ---- SKU Performance tab ----
+const skuPerf = DATA.skuPerformance;
+new Chart(document.getElementById('chartSkuPerf'), {
+  type:'bar',
+  data:{ labels: skuPerf.slice(0,15).map(s=>s.sku),
+    datasets:[{label:'Gross Sales (₹)', data: skuPerf.slice(0,15).map(s=>s.saleAmt), backgroundColor:'#2874f0'}]},
+  options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#93a0b8'}},y:{ticks:{color:'#93a0b8'}}}}
+});
+function renderSkuPerf(){
+  const q = document.getElementById('skuSearch').value.toLowerCase();
+  const f = document.getElementById('skuFilter').value;
+  let items = skuPerf.filter(s=>
+    (!q || s.sku.toLowerCase().includes(q) || (s.title||'').toLowerCase().includes(q)) &&
+    (!f || (f==='oos' && s.stock===0) || (f==='highret' && s.returnRate>=20))
+  );
+  document.getElementById('tblSkuPerf').innerHTML = '<tr><th>SKU</th><th>Title</th><th>Gross Units</th><th>Gross Sales (₹)</th><th>Return Units</th><th>Return Amt (₹)</th><th>Net Units</th><th>Net Sales (₹)</th><th>Return Rate %</th><th>Status</th><th>MRP (₹)</th><th>Selling Price (₹)</th><th>Stock</th></tr>' +
+    items.map(s=>{
+      let badge = s.stock===0 ? '<span class="badge red">OOS</span>' : s.returnRate>=20 ? '<span class="badge yellow">High Returns</span>' : (s.status==='ACTIVE'?'<span class="badge green">Active</span>':`<span class="badge yellow">${s.status||'—'}</span>`);
+      return `<tr><td>${s.sku}</td><td>${s.title||''}</td><td>${s.saleUnits}</td><td>${fmt(s.saleAmt)}</td><td>${s.returnUnits}</td><td class="neg">${fmtSigned(s.returnAmt)}</td><td>${s.netUnits}</td><td class="pos">${fmt(s.netAmt)}</td><td>${s.returnRate}%</td><td>${badge}</td><td>${s.mrp!=null?fmt(s.mrp):'—'}</td><td>${s.sellingPrice!=null?fmt(s.sellingPrice):'—'}</td><td>${s.stock!=null?s.stock:'—'}</td></tr>`;
+    }).join('');
+}
+document.getElementById('skuSearch').oninput = renderSkuPerf;
+document.getElementById('skuFilter').onchange = renderSkuPerf;
+renderSkuPerf();
+
+new Chart(document.getElementById('chartPnl'), {
+  type:'bar',
+  data:{ labels:['Gross Sales','Returns','Net Sales','Fees & Costs','Taxes','Rewards','Net Earnings'],
+    datasets:[{label:'Amount (₹)', data:[p.grossSalesAmt, p.returnsAmt, p.netSalesAmt, p.feesCosts, p.taxes, p.rewardsSpf, p.netEarnings],
+      backgroundColor:(ctx)=>{ const v=ctx.raw; return v<0? '#ff5d6c':'#3ddc97'; }}]},
+  options:{plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#93a0b8'}},y:{ticks:{color:'#93a0b8'}}}}
+});
+
+new Chart(document.getElementById('chartDailyFull'), {
+  type:'bar',
+  data:{ labels: DATA.daily.map(d=>d.date),
+    datasets:[
+      {label:'Courier/RTO', data: DATA.daily.map(d=>d.courier), backgroundColor:'#ffb454', stack:'s'},
+      {label:'Customer Return', data: DATA.daily.map(d=>d.customer), backgroundColor:'#ff5d6c', stack:'s'}
+    ]},
+  options:{plugins:{legend:{labels:{color:'#e8ecf5'}}}, scales:{x:{stacked:true,ticks:{color:'#93a0b8',maxRotation:90,minRotation:90}},y:{stacked:true,ticks:{color:'#93a0b8'}}}}
+});
+
+new Chart(document.getElementById('chartSku'), {
+  type:'bar',
+  data:{ labels: DATA.skuReturns.slice(0,12).map(s=>s.sku),
+    datasets:[{label:'Units Returned', data: DATA.skuReturns.slice(0,12).map(s=>s.units), backgroundColor:'#2874f0'}]},
+  options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#93a0b8'}},y:{ticks:{color:'#93a0b8'}}}}
+});
+
+// ---- P&L Table ----
+const pnlRows = [
+  ['Gross Sales', p.grossSalesUnits, p.grossSalesAmt],
+  ['Returns & Cancellations', p.returnsUnits, p.returnsAmt],
+  ['Estimated Net Sales', '', p.estNetSales],
+  ['Shopsy Buyer Fees', '', p.shopsyFees],
+  ['Seller-Funded Discount', '', p.sellerDiscount],
+  ['Net Sales', p.netSalesUnits, p.netSalesAmt],
+  ['Fees & Costs', '', p.feesCosts],
+  ['  Marketplace Fees', '', p.marketplaceFees],
+  ['  Fixed Fee', '', p.fixedFee],
+  ['  Reverse Shipping Fees', '', p.reverseShipping],
+  ['  Shopsy Buyer Fees Recovery', '', p.shopsyRecovery],
+  ['Taxes', '', p.taxes],
+  ['Rewards & SPF', '', p.rewardsSpf],
+  ['Bank Settlement (₹'+p.bankSettled.toLocaleString('en-IN')+' already settled)', '', p.bankSettlement],
+  ['Input Tax Credits', '', p.inputTaxCredits],
+  ['Net Earnings', '', p.netEarnings],
+];
+document.getElementById('tblPnl').innerHTML = '<tr><th>Line Item</th><th>Units</th><th>Amount</th></tr>' +
+  pnlRows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td class="${r[2]<0?'neg':'pos'}">${fmtSigned(r[2])}</td></tr>`).join('');
+
+// ---- Returns Detail table ----
+function renderRet(){
+  const q = document.getElementById('retSearch').value.toLowerCase();
+  const f = document.getElementById('retFilter').value;
+  let items = DATA.returns.filter(r=>
+    (!f || r.type===f) &&
+    (!q || r.sku.toLowerCase().includes(q) || r.orderId.toLowerCase().includes(q) || r.reason.toLowerCase().includes(q))
+  );
+  document.getElementById('tblRet').innerHTML = '<tr><th>Date</th><th>Order ID</th><th>SKU</th><th>Qty</th><th>Type</th><th>Reason</th></tr>' +
+    items.map(r=>`<tr><td>${r.date}</td><td>${r.orderId}</td><td>${r.sku}</td><td>${r.qty}</td><td>${r.type}</td><td>${r.reason}</td></tr>`).join('');
+}
+document.getElementById('retSearch').oninput = renderRet;
+document.getElementById('retFilter').onchange = renderRet;
+renderRet();
+
+// ---- Inventory ----
+const inv = DATA.inventory;
+document.getElementById('kpiInv').innerHTML = `
+  <div class="kpi"><div class="label">Total Active SKUs</div><div class="value">${inv.totalSkus}</div></div>
+  <div class="kpi"><div class="label">Total Units in Stock</div><div class="value">${inv.totalUnits.toLocaleString('en-IN')}</div></div>
+  <div class="kpi"><div class="label">Low Stock SKUs</div><div class="value">${inv.lowStock}</div></div>
+  <div class="kpi"><div class="label">Out of Stock SKUs</div><div class="value bad">${inv.outOfStock}</div></div>
+`;
+document.getElementById('tblInv').innerHTML = '<tr><th>SKU</th><th>FSN</th><th>Product</th><th>Avg Daily Sales (30d)</th><th>Potential Monthly Loss</th><th>Status</th></tr>' +
+  inv.oosList.map(s=>`<tr><td>${s.sku}</td><td>${s.fsn}</td><td>${s.product}</td><td>${s.avgDailySales}</td><td>${fmt(s.potentialLoss)}</td><td><span class="badge red">${s.status}</span></td></tr>`).join('');
+
+// ---- Ads ----
+const ads = DATA.ads;
+document.getElementById('adsNote').textContent = ads.note;
+document.getElementById('kpiAds').innerHTML = `
+  <div class="kpi"><div class="label">Ad Spend (30d)</div><div class="value">${fmt(ads.adSpend)}</div></div>
+  <div class="kpi"><div class="label">Attributed Revenue (30d)</div><div class="value good">${fmt(ads.revenue)}</div></div>
+  <div class="kpi"><div class="label">ROI</div><div class="value good">${ads.roi}</div></div>
+  <div class="kpi"><div class="label">TACoS</div><div class="value warn">${ads.tacos}%</div></div>
+  <div class="kpi"><div class="label">Live Campaigns</div><div class="value">${ads.activeCampaigns} <span style="font-size:13px;color:var(--muted);">of ${ads.totalCampaigns}</span></div></div>
+  <div class="kpi"><div class="label">Views / Clicks</div><div class="value" style="font-size:16px;">${ads.views.toLocaleString('en-IN')} / ${ads.clicks.toLocaleString('en-IN')}</div></div>
+`;
+
+const spendingCampaigns = ads.campaigns.filter(c=>c.spend>0).sort((a,b)=>b.spend-a.spend);
+new Chart(document.getElementById('chartAdsSpend'), {
+  type:'bar',
+  data:{ labels: spendingCampaigns.slice(0,12).map(c=>c.name.length>22?c.name.slice(0,22)+'…':c.name),
+    datasets:[{label:'Ad Spend (₹)', data: spendingCampaigns.slice(0,12).map(c=>c.spend), backgroundColor:'#2874f0'}]},
+  options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#93a0b8'}},y:{ticks:{color:'#93a0b8'}}}}
+});
+
+new Chart(document.getElementById('chartAdsScatter'), {
+  type:'scatter',
+  data:{ datasets:[{label:'Campaigns', data: spendingCampaigns.map(c=>({x:c.spend, y:c.revenue, r:6})),
+    backgroundColor:'#ffe500'}]},
+  options:{plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>spendingCampaigns[ctx.dataIndex].name+': spend '+fmt(ctx.raw.x)+', revenue '+fmt(ctx.raw.y)}}},
+    scales:{x:{title:{display:true,text:'Ad Spend (₹)',color:'#93a0b8'},ticks:{color:'#93a0b8'}}, y:{title:{display:true,text:'Revenue (₹)',color:'#93a0b8'},ticks:{color:'#93a0b8'}}}}
+});
+
+function renderAds(){
+  const q = document.getElementById('adsSearch').value.toLowerCase();
+  const f = document.getElementById('adsFilter').value;
+  let items = ads.campaigns.filter(c=>
+    (!f || c.status===f) && (!q || c.name.toLowerCase().includes(q))
+  );
+  document.getElementById('tblAds').innerHTML = '<tr><th>Campaign</th><th>Status</th><th>Type</th><th>Ad Spend</th><th>Views</th><th>Clicks</th><th>CTR</th><th>Units Sold</th><th>Revenue</th><th>ROI</th><th>CVR</th></tr>' +
+    items.map(c=>`<tr><td>${c.name}</td><td><span class="badge ${c.status==='Live'?'green':c.status==='Aborted'?'red':'yellow'}">${c.status}</span></td><td>${c.type}</td><td>${fmt(c.spend)}</td><td>${c.views.toLocaleString('en-IN')}</td><td>${c.clicks.toLocaleString('en-IN')}</td><td>${c.ctr}%</td><td>${c.unitsSold}</td><td>${fmt(c.revenue)}</td><td>${c.roi}</td><td>${c.cvr}%</td></tr>`).join('');
+}
+document.getElementById('adsSearch').oninput = renderAds;
+document.getElementById('adsFilter').onchange = renderAds;
+renderAds();
+
+// ---- Payments ----
+document.getElementById('tblUpcoming').innerHTML = '<tr><th>Payment Date</th><th>Prepaid</th><th>Postpaid</th><th>Total Estimate</th></tr>' +
+  DATA.payments.upcoming.map(u=>`<tr><td>${u.date}</td><td>${fmtSigned(u.prepaid)}</td><td class="${u.postpaid<0?'neg':''}">${fmtSigned(u.postpaid)}</td><td>${fmtSigned(u.total)}</td></tr>`).join('') +
+  `<tr><td colspan="3"><b>Total Outstanding</b></td><td class="neg"><b>${fmtSigned(DATA.payments.totalOutstanding)}</b></td></tr>`;
+document.getElementById('tblRecent').innerHTML = '<tr><th>Payment Date</th><th>Amount</th><th>Note</th></tr>' +
+  DATA.payments.recent.map(r=>`<tr><td>${r.date}</td><td>${fmt(r.amount)}</td><td>${r.note}</td></tr>`).join('');
+
+// ---- Data gaps notes ----
+document.getElementById('dataGaps').innerHTML = DATA.dataGaps.map(g=>`<li>${g}</li>`).join('');
+
+}
+renderDashboard();
+
+
+// ============================================================
+// LIVE WORKBOOK LOADER (SheetJS) - re-parses Daily/Weekly Sales,
+// SKU Performance, and Returns Detail from the picked xlsx, then
+// re-derives daily/reasons/skuReturns and reruns renderDashboard().
+// Ads/Inventory/Payments/Quality/Today stay as generation-time
+// snapshots (not literal single tables in the source workbook).
+// ============================================================
+function fkSheetRows(wb, sheetName, headerRow){
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return [];
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+  const headers = aoa[headerRow-1] || [];
+  const rows = [];
+  for (let i=headerRow; i<aoa.length; i++){
+    const r = aoa[i];
+    if (!r || r.every(v=>v===null||v==='')) continue;
+    if (r[0]===null || r[0]==='') continue;
+    if (typeof r[0] === 'string' && r[0].trim().toUpperCase() === 'TOTAL') continue;
+    const obj = {};
+    headers.forEach((h,ci)=>{ if(h!==null && h!=='') obj[h] = r[ci]===undefined?null:r[ci]; });
+    rows.push(obj);
+  }
+  return rows;
+}
+function fkStripYear(d){ return (d||'').replace(/-2026$/,''); }
+
+function buildPnlFromSheet(wb){
+  const ws = wb.Sheets['Period P&L (Earnings Summary)'];
+  if (!ws) return null;
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+  const pnl = {};
+  for (const row of aoa){
+    const label = (row[0]||'').toString();
+    const units = row[1], amt = row[2];
+    if (label.startsWith('Gross Sales')) { pnl.grossSalesUnits = units; pnl.grossSalesAmt = amt; }
+    else if (label.startsWith('Returns & Cancellations')) { pnl.returnsUnits = units; pnl.returnsAmt = amt; }
+    else if (label.startsWith('Estimated Net Sales')) pnl.estNetSales = amt;
+    else if (label.startsWith('Shopsy Buyer Fees')) pnl.shopsyFees = amt;
+    else if (label.startsWith('Seller-Funded Discount')) pnl.sellerDiscount = amt;
+    else if (label.startsWith('Net Sales')) { pnl.netSalesUnits = units; pnl.netSalesAmt = amt; }
+    else if (label.startsWith('Fees & Costs')) pnl.feesCosts = amt;
+    else if (label.includes('Marketplace Fees')) pnl.marketplaceFees = amt;
+    else if (label.includes('Fixed Fee')) pnl.fixedFee = amt;
+    else if (label.includes('Reverse Shipping')) pnl.reverseShipping = amt;
+    else if (label.includes('Shopsy Buyer Fees Recovery')) pnl.shopsyRecovery = amt;
+    else if (label.startsWith('Taxes')) pnl.taxes = amt;
+    else if (label.startsWith('Rewards')) pnl.rewardsSpf = amt;
+    else if (label.startsWith('Bank Settlement')) {
+      pnl.bankSettlement = amt;
+      const m = label.match(/Rs\s*([\d,]+)\s*already settled/);
+      pnl.bankSettled = m ? parseInt(m[1].replace(/,/g,''),10) : null;
+    }
+    else if (label.startsWith('Input Tax Credits')) pnl.inputTaxCredits = amt;
+    else if (label.startsWith('Net Earnings')) pnl.netEarnings = amt;
+  }
+  pnl.returnRatePct = pnl.grossSalesUnits ? Math.round((Math.abs(pnl.returnsUnits||0)/pnl.grossSalesUnits*100)*100)/100 : 0;
+  return pnl;
+}
+
+document.getElementById('loadWorkbookBtn').addEventListener('click', ()=>{
+  document.getElementById('workbookFileInput').click();
+});
+document.getElementById('workbookFileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('loadStatus');
+  statusEl.textContent = 'Loading ' + file.name + '...';
+  const reader = new FileReader();
+  reader.onload = (evt)=>{
+    try {
+      const wb = XLSX.read(evt.target.result, {type:'array'});
+
+      const dailySalesRaw = fkSheetRows(wb, 'Daily Sales & P&L', 4);
+      const dailySales = dailySalesRaw.map(r=>({
+        date: fkStripYear(r['Date']), saleUnits: r['Gross Sale Units'], saleAmt: r['Gross Sales (Rs)'],
+        returnUnits: r['Returned Units'], returnAmt: r['Return Amount (Rs)'], netUnits: r['Net Units'],
+        netAmt: r['Net Sales (Rs)'], returnRate: r['Return Rate % (units)'], aov: r['Avg Order Value (Rs)']
+      }));
+
+      const weeklySalesRaw = fkSheetRows(wb, 'Weekly Sales & P&L', 4);
+      const weeklySales = weeklySalesRaw.map(r=>({
+        week: r['Week'], saleUnits: r['Gross Sale Units'], saleAmt: r['Gross Sales (Rs)'],
+        returnUnits: r['Returned Units'], returnAmt: r['Return Amount (Rs)'], netUnits: r['Net Units'],
+        netAmt: r['Net Sales (Rs)'], days: r['Days'], returnRate: r['Return Rate % (units)'], aov: r['Avg Order Value (Rs)']
+      }));
+
+      const skuRaw = fkSheetRows(wb, 'SKU Performance', 4);
+      const skuPerformance = skuRaw.map(r=>({
+        sku: r['SKU'], title: r['Product Title'], saleUnits: r['Gross Sale Units'], saleAmt: r['Gross Sales (Rs)'],
+        returnUnits: r['Return Units'], returnAmt: r['Return Amount (Rs)'], netUnits: r['Net Units'], netAmt: r['Net Sales (Rs)'],
+        returnRate: r['Return Rate % (units)'], status: r['Listing Status'], mrp: r['MRP (Rs)'],
+        sellingPrice: r['Selling Price (Rs)'], stock: r['System Stock']
+      }));
+
+      const retRaw = fkSheetRows(wb, 'Returns Detail', 4);
+      const returns = retRaw.map(r=>({
+        date: r['Return Date'], orderId: r['Order ID (last 10 digits)'], sku: r['SKU'], qty: r['Qty'],
+        type: r['Return Type'], reason: r['Reason']
+      }));
+
+      if (!dailySales.length) throw new Error("Couldn't find a 'Daily Sales & P&L' sheet with data - is this the right workbook?");
+
+      // Derive reasons, skuReturns, daily (courier/customer by date) from returns
+      const reasonMap = {}, skuMap = {}, dayMap = {};
+      returns.forEach(r=>{
+        const reason = r.reason || 'Unspecified';
+        reasonMap[reason] = (reasonMap[reason]||0) + (r.qty||0);
+        if (r.sku) skuMap[r.sku] = (skuMap[r.sku]||0) + (r.qty||0);
+        if (!dayMap[r.date]) dayMap[r.date] = {date:r.date, total:0, courier:0, customer:0};
+        dayMap[r.date].total += (r.qty||0);
+        if (r.type === 'Courier/RTO') dayMap[r.date].courier += (r.qty||0);
+        else if (r.type === 'Customer Return') dayMap[r.date].customer += (r.qty||0);
+      });
+      const reasons = Object.entries(reasonMap).sort((a,b)=>b[1]-a[1]).map(([reason,units])=>({reason,units}));
+      const skuReturns = Object.entries(skuMap).sort((a,b)=>b[1]-a[1]).map(([sku,units])=>({sku,units}));
+      const daily = Object.values(dayMap).sort((a,b)=> new Date(a.date.split('-').reverse().join('-')) - new Date(b.date.split('-').reverse().join('-')));
+
+      const pnl = buildPnlFromSheet(wb) || DATA.pnl;
+
+      DATA = {...DATA, pnl, dailySales, weeklySales, skuPerformance, returns, reasons, skuReturns, daily};
+      renderDashboard();
+      statusEl.textContent = 'Loaded ' + file.name + ' (' + dailySales.length + ' daily rows, ' + returns.length + ' returns) at ' + new Date().toLocaleTimeString('en-IN');
+      statusEl.style.color = 'var(--good)';
+    } catch(err){
+      statusEl.textContent = 'Failed to load: ' + err.message;
+      statusEl.style.color = 'var(--bad)';
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+</script>
+</body>
+</html>

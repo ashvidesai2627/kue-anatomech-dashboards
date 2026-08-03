@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KUE / Anatomech — Amazon Sales Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#171e2e; --panel2:#1d2536; --border:#2a3348;
+    --text:#e8ecf5; --muted:#93a0b8; --accent:#ff9900; --accent2:#37c2ff;
+    --good:#3ddc97; --warn:#ffb454; --bad:#ff5d6c;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:24px 32px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:50;}
+  header h1{margin:0 0 4px;font-size:22px;font-weight:700;}
+  header .sub{color:var(--muted);font-size:13px;}
+  nav{display:flex;gap:6px;padding:14px 32px 0;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:70px;z-index:49;}
+  nav button{background:none;border:none;color:var(--muted);padding:10px 16px;font-size:13.5px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;transition:.15s;}
+  nav button:hover{color:var(--text);}
+  nav button.active{color:var(--accent);border-bottom-color:var(--accent);}
+  main{padding:24px 32px 60px;max-width:1500px;margin:0 auto;}
+  .tab{display:none;}
+  .tab.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:24px;}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+  .kpi .label{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+  .kpi .value{font-size:22px;font-weight:700;}
+  .kpi .value.good{color:var(--good);}
+  .kpi .value.bad{color:var(--bad);}
+  .kpi .value.warn{color:var(--warn);}
+  .kpi .note{font-size:11px;color:var(--muted);margin-top:4px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:20px;}
+  .panel h2{margin:0 0 4px;font-size:15px;}
+  .panel .desc{color:var(--muted);font-size:12.5px;margin-bottom:14px;}
+  .grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+  @media(max-width:1000px){.grid2,.grid3{grid-template-columns:1fr;}}
+  canvas{max-width:100%;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{text-align:left;padding:8px 10px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;position:sticky;top:0;background:var(--panel2);}
+  th:hover{color:var(--accent2);}
+  td{padding:7px 10px;border-bottom:1px solid #232b3d;white-space:nowrap;}
+  tr:hover td{background:#1b2436;}
+  .table-wrap{max-height:520px;overflow:auto;border-radius:8px;border:1px solid var(--border);}
+  .controls{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+  input[type=text]{background:#101627;border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:12.5px;min-width:220px;}
+  select{background:#101627;border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-size:12.5px;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+  .badge.red{background:rgba(255,93,108,.18);color:var(--bad);}
+  .badge.yellow{background:rgba(255,180,84,.18);color:var(--warn);}
+  .badge.green{background:rgba(61,220,151,.18);color:var(--good);}
+  .neg{color:var(--bad);}
+  .pos{color:var(--good);}
+  ul.insight{margin:0;padding-left:18px;}
+  ul.insight li{margin-bottom:10px;font-size:13.5px;line-height:1.5;color:#cfd6e4;}
+  ul.insight li b{color:var(--text);}
+  .flag{font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;margin-right:6px;}
+  .flag.high{background:rgba(255,93,108,.2);color:var(--bad);}
+  .flag.med{background:rgba(255,180,84,.2);color:var(--warn);}
+  .flag.low{background:rgba(55,194,255,.2);color:var(--accent2);}
+  footer{text-align:center;color:var(--muted);font-size:11.5px;padding:20px;}
+  .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .pill{background:#101627;border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11.5px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>KUE / Anatomech — Amazon.in Sales Performance Dashboard</h1>
+  <div class="sub" id="periodLine">Loading…</div>
+  <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button id="loadWorkbookBtn" style="background:#2874f0;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;">&#128193; Load Workbook (.xlsx)</button>
+    <input type="file" id="workbookFileInput" accept=".xlsx" style="display:none;">
+    <span id="loadStatus" style="font-size:11.5px;color:var(--muted);"></span>
+  </div>
+</header>
+
+<nav id="tabs">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="trends">Daily &amp; Weekly Trends</button>
+  <button data-tab="sku">SKU Performance</button>
+  <button data-tab="inventory">Inventory Alerts</button>
+  <button data-tab="ads">Advertising</button>
+  <button data-tab="returns">Returns</button>
+  <button data-tab="suggestions">Suggestions &amp; Data Quality</button>
+</nav>
+
+<main>
+
+  <!-- OVERVIEW -->
+  <section class="tab active" id="tab-overview">
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <div class="panel" id="rootCausePanel" style="border-color:#3d2f1a;background:linear-gradient(180deg,#1d1a12,#171e2e);">
+      <h2 style="color:var(--warn);">⚠ Root Cause Alerts — why the numbers moved</h2>
+      <div class="desc">Auto-generated from the underlying transaction, SKU and campaign data below — not a canned summary. Each card traces the metric back to the specific rows that drive it, so you have an answer ready before a stakeholder asks.</div>
+      <div id="alertCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel">
+        <h2>Net Payout vs Gross Sales — Daily</h2>
+        <div class="desc">Actual cash Amazon paid out each day vs. order value booked that day.</div>
+        <canvas id="chartOverviewDaily" height="260"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Weekly Rollup</h2>
+        <div class="desc">Calendar weeks (Mon-Sun). Week 1 (5 days) and Week 5 (1 day so far) are partial — compare using avg daily payout, not totals.</div>
+        <canvas id="chartWeekly" height="260"></canvas>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Top 10 SKUs by Sales</h2>
+        <canvas id="chartTopSku" height="280"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Return Reasons (period)</h2>
+        <canvas id="chartReturnReasons" height="280"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRENDS -->
+  <section class="tab" id="tab-trends">
+    <div class="panel">
+      <h2>Daily Sales &amp; P&amp;L</h2>
+      <div class="desc">Gross sales, net payout, orders and return rate — 1-2 Aug 2026 (2 days so far this month; Aug 3 in progress, excluded).</div>
+      <canvas id="chartDailyFull" height="220"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Daily detail table</h2>
+      <div class="table-wrap"><table id="tblDaily"></table></div>
+    </div>
+    <div class="panel">
+      <h2>Weekly detail table</h2>
+      <div class="table-wrap"><table id="tblWeekly"></table></div>
+    </div>
+  </section>
+
+  <!-- SKU -->
+  <section class="tab" id="tab-sku">
+    <div class="panel">
+      <h2>Sessions vs Conversion (bubble = total sales)</h2>
+      <div class="desc">Bottom-right SKUs get traffic but don't convert — look here first for listing/pricing/imagery fixes.</div>
+      <canvas id="chartSkuScatter" height="260"></canvas>
+    </div>
+    <div class="panel">
+      <h2>All SKUs</h2>
+      <div class="controls">
+        <input type="text" id="skuSearch" placeholder="Search SKU, ASIN or product name…">
+        <select id="skuFilter">
+          <option value="all">All SKUs</option>
+          <option value="neg">Negative net proceeds</option>
+          <option value="highreturn">Return rate ≥ 15%</option>
+          <option value="lowconv">High traffic, low conversion</option>
+          <option value="oos">Out of stock</option>
+        </select>
+      </div>
+      <div class="table-wrap"><table id="tblSku"></table></div>
+    </div>
+  </section>
+
+  <!-- INVENTORY -->
+  <section class="tab" id="tab-inventory">
+    <div class="kpi-grid" id="kpiInv"></div>
+    <div class="panel">
+      <h2>Restock Priority</h2>
+      <div class="desc">Sorted by period sales (revenue at risk if it stays unstocked). Only SKUs with sales history shown.</div>
+      <div class="controls">
+        <input type="text" id="invSearch" placeholder="Search SKU or product…">
+        <select id="invFilter">
+          <option value="all">All statuses</option>
+          <option value="OUT OF STOCK">Out of stock</option>
+          <option value="CRITICALLY LOW (<=5)">Critically low (≤5)</option>
+          <option value="LOW (<=15)">Low (≤15)</option>
+        </select>
+      </div>
+      <div class="table-wrap"><table id="tblInv"></table></div>
+    </div>
+  </section>
+
+  <!-- ADS -->
+  <section class="tab" id="tab-ads">
+    <div class="kpi-grid" id="kpiAds"></div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Spend vs ACOS — Top 25 Campaigns by Spend</h2>
+        <div class="desc">Bubble size = purchases. Campaigns high and to the right burn budget with poor efficiency.</div>
+        <canvas id="chartAdsScatter" height="280"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Ad Spend by Type</h2>
+        <canvas id="chartAdsType" height="280"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>All Campaigns (lifetime-to-date) — NOT REFRESHED FOR AUGUST</h2>
+      <div class="desc">Note: this table is empty for the new August workbook — no Advertising export was pulled this run. See Notes tab of the xlsx.</div>
+      <div class="controls">
+        <input type="text" id="adsSearch" placeholder="Search campaign name…">
+        <select id="adsFilter">
+          <option value="all">All campaigns</option>
+          <option value="zero">Spend, zero purchases</option>
+          <option value="highacos">ACOS ≥ 50%</option>
+        </select>
+      </div>
+      <div class="table-wrap"><table id="tblAds"></table></div>
+    </div>
+  </section>
+
+  <!-- RETURNS -->
+  <section class="tab" id="tab-returns">
+    <div class="grid2">
+      <div class="panel">
+        <h2>Return Reasons</h2>
+        <canvas id="chartReturnReasons2" height="280"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Returns by SKU</h2>
+        <canvas id="chartReturnsBySku" height="280"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Return / Refund Line Items</h2>
+      <div class="controls">
+        <input type="text" id="retSearch" placeholder="Search SKU, order ID or reason…">
+      </div>
+      <div class="table-wrap"><table id="tblRet"></table></div>
+    </div>
+  </section>
+
+  <!-- SUGGESTIONS -->
+  <section class="tab" id="tab-suggestions">
+    <div class="panel">
+      <h2>Business suggestions — where to act first</h2>
+      <div class="desc">Generated from patterns in this report. Ranked roughly by revenue/profit impact. <b>Snapshot as of 27-Jul-2026 generation</b> — unlike the KPIs/charts/Root Cause Alerts above, this list is written analyst commentary and does not auto-update when you load a new workbook.</div>
+      <ul class="insight" id="bizSuggestions"></ul>
+    </div>
+    <div class="panel">
+      <h2>Data quality issues found in this report</h2>
+      <div class="desc">Fixing these will make future dashboards and reconciliations more reliable. <b>Snapshot as of 27-Jul-2026 generation</b> — written analyst commentary, does not auto-update on workbook load.</div>
+      <ul class="insight" id="dataIssues"></ul>
+    </div>
+  </section>
+
+</main>
+
+<footer>Built from Amazon_Sales_Performance_Report_Jul2026.xlsx · KUE / Anatomech Amazon.in · All figures in ₹ (INR)</footer>
+
+<script>
+let DATA = {"daily": [{"Date": "01-Aug-2026", "Order Lines": 37, "Orders": 37, "Gross Sales (Rs)": 19117.24, "Promo Rebates (Rs)": -702.49, "Amazon Fees (Rs)": -3990.7, "Other Charges (Rs)": 846.74, "Net from Orders (Rs)": 15270.79, "Refund Lines": 8, "Refunded Orders": 8, "Refund Amount (Rs)": -3388.32, "Fulfillment Fee Refund (Rs)": 392.94, "Other Adjustments (Rs)": -2552.81, "Net Payout (Rs)": 9722.6, "Return Rate %": 21.62, "Avg Order Value (Rs)": 516.68}, {"Date": "02-Aug-2026", "Order Lines": 22, "Orders": 22, "Gross Sales (Rs)": 11362.81, "Promo Rebates (Rs)": -641.1, "Amazon Fees (Rs)": -2427.96, "Other Charges (Rs)": 692.82, "Net from Orders (Rs)": 8986.57, "Refund Lines": 0, "Refunded Orders": 0, "Refund Amount (Rs)": 0.0, "Fulfillment Fee Refund (Rs)": 0.0, "Other Adjustments (Rs)": -2776.37, "Net Payout (Rs)": 6210.2, "Return Rate %": 0.0, "Avg Order Value (Rs)": 516.49}], "weekly": [{"Week": "Week 1 (Jul27-Aug2 ISO week; Aug portion only, Aug 1-2 - Jul27-31 portion frozen in July workbook)", "Order Lines": 59, "Orders": 59, "Gross Sales (Rs)": 30480.05, "Promo Rebates (Rs)": -1343.59, "Amazon Fees (Rs)": -6418.66, "Other Charges (Rs)": 1539.56, "Net from Orders (Rs)": 24257.36, "Refund Lines": 8, "Refunded Orders": 8, "Refund Amount (Rs)": -3388.32, "Fulfillment Fee Refund (Rs)": 392.94, "Other Adjustments (Rs)": -5329.18, "Net Payout (Rs)": 15932.8, "Days": 2, "Avg Daily Net Payout (Rs)": 7966.4, "Return Rate %": 13.56, "Avg Order Value (Rs)": 516.61}], "sku": [], "inv": [], "ads": [], "ret": [], "summary": {"total_ad_cost_sku": 0, "total_sales_sku": 0, "neg_proceeds_count": 0, "neg_proceeds_total": 0, "top_neg_proceeds": [], "oos_count": 0, "oos_revenue_at_risk": 0, "oos_list": [], "crit_count": 0, "low_count": 0, "zero_purchase_campaigns": 0, "wasted_spend_total": 0, "high_acos_campaigns": [], "return_reasons": {}, "low_conv_high_traffic": [], "dup_sku_codes": [], "dup_asins": [], "missing_health": 0, "missing_star": 0, "total_skus": 0, "negative_payout_days": []}};
+</script>
+<script>
+const fmt = n => n===null||n===undefined||isNaN(n) ? '—' : Number(n).toLocaleString('en-IN',{maximumFractionDigits:2,minimumFractionDigits:0});
+const fmtRs = n => n===null||n===undefined||isNaN(n) ? '—' : '₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:0});
+const fmtPct = n => n===null||n===undefined||isNaN(n) ? '—' : Number(n).toFixed(1)+'%';
+
+// ---------- Tabs ----------
+document.getElementById('tabs').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+});
+
+function renderDashboard(){
+  ['chartOverviewDaily','chartWeekly','chartTopSku','chartReturnReasons','chartReturnReasons2','chartReturnsBySku','chartDailyFull','chartSkuScatter','chartAdsScatter','chartAdsType'].forEach(id=>{ const ch = Chart.getChart(id); if (ch) ch.destroy(); });
+
+// ---------- Chart defaults ----------
+Chart.defaults.color = '#93a0b8';
+Chart.defaults.borderColor = '#2a3348';
+Chart.defaults.font.family = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto";
+const COLORS = {orange:'#ff9900', blue:'#37c2ff', green:'#3ddc97', red:'#ff5d6c', purple:'#b985ff', yellow:'#ffb454'};
+
+// ---------- Header period line ----------
+const totalGross = DATA.daily.reduce((a,d)=>a+(d['Gross Sales (Rs)']||0),0);
+const totalPayout = DATA.daily.reduce((a,d)=>a+(d['Net Payout (Rs)']||0),0);
+const totalOrders = DATA.daily.reduce((a,d)=>a+(d['Orders']||0),0);
+const firstDate = DATA.daily[0] ? DATA.daily[0].Date : '?';
+const lastDate = DATA.daily[DATA.daily.length-1] ? DATA.daily[DATA.daily.length-1].Date : '?';
+document.getElementById('periodLine').textContent =
+  `Data period: ${firstDate} - ${lastDate} (${DATA.daily.length} days) · ${totalOrders} orders · Net payout ₹${fmt(totalPayout)} · Gross sales ₹${fmt(totalGross)}`;
+
+// ---------- KPI cards ----------
+const S = DATA.summary;
+const totalRefunds = DATA.daily.reduce((a,d)=>a+Math.abs(d['Refund Amount (Rs)']||0),0);
+const avgAOV = totalGross/totalOrders;
+const returnRateOverall = DATA.daily.reduce((a,d)=>a+(d['Refunded Orders']||0),0)/totalOrders*100;
+const totalAdSpendPeriod = S.total_ad_cost_sku;
+const tacos = totalAdSpendPeriod/S.total_sales_sku*100;
+
+function kpi(label,value,cls,note){
+  return `<div class="kpi"><div class="label">${label}</div><div class="value ${cls||''}">${value}</div>${note?`<div class="note">${note}</div>`:''}</div>`;
+}
+document.getElementById('kpiGrid').innerHTML = [
+  kpi('Net Payout Received','₹'+fmt(totalPayout),'good'),
+  kpi('Gross Product Sales','₹'+fmt(totalGross)),
+  kpi('Total Refunds','₹'+fmt(totalRefunds),'bad'),
+  kpi('Distinct Orders', fmt(totalOrders)),
+  kpi('Avg Order Value','₹'+fmt(avgAOV)),
+  kpi('Order Return Rate', fmtPct(returnRateOverall), returnRateOverall>15?'bad':'warn'),
+  kpi('Total Ad Spend (SKU P&L)','₹'+fmt(totalAdSpendPeriod)),
+  kpi('TACoS', fmtPct(tacos), tacos>20?'warn':'good','Ad spend ÷ sales'),
+  kpi('SKUs Out of Stock', S.oos_count, S.oos_count>0?'bad':'good', '₹'+fmt(S.oos_revenue_at_risk)+' revenue at risk'),
+  kpi('SKUs Critically Low (≤5)', S.crit_count, 'warn'),
+].join('');
+
+// ---------- Overview: daily net payout vs gross ----------
+new Chart(document.getElementById('chartOverviewDaily'), {
+  type:'line',
+  data:{
+    labels: DATA.daily.map(d=>d.Date.replace('-2026','')),
+    datasets:[
+      {label:'Gross Sales', data: DATA.daily.map(d=>d['Gross Sales (Rs)']), borderColor:COLORS.blue, backgroundColor:'transparent', tension:.3},
+      {label:'Net Payout', data: DATA.daily.map(d=>d['Net Payout (Rs)']), borderColor:COLORS.orange, backgroundColor:'transparent', tension:.3,
+        pointBackgroundColor: DATA.daily.map(d=> explainDayIssue(d) ? COLORS.red : COLORS.orange),
+        pointRadius: DATA.daily.map(d=> explainDayIssue(d) ? 6 : 3),
+        pointBorderColor: DATA.daily.map(d=> explainDayIssue(d) ? '#fff' : COLORS.orange),
+        pointBorderWidth: DATA.daily.map(d=> explainDayIssue(d) ? 2 : 1),
+      },
+    ]
+  },
+  options:{
+    responsive:true,
+    plugins:{
+      legend:{position:'bottom'},
+      tooltip:{
+        callbacks:{
+          afterBody: (items)=>{
+            const idx = items[0].dataIndex;
+            const d = DATA.daily[idx];
+            const why = explainDayIssue(d);
+            return why ? ['', '⚠ Why: ' + why] : [];
+          }
+        }
+      }
+    },
+    scales:{x:{ticks:{maxRotation:60,minRotation:60}}}
+  }
+});
+
+// ---------- Weekly chart ----------
+new Chart(document.getElementById('chartWeekly'), {
+  type:'bar',
+  data:{
+    labels: DATA.weekly.map(w=>w.Week.split(' (')[0]),
+    datasets:[
+      {label:'Gross Sales', data: DATA.weekly.map(w=>w['Gross Sales (Rs)']), backgroundColor:COLORS.blue},
+      {label:'Net Payout', data: DATA.weekly.map(w=>w['Net Payout (Rs)']), backgroundColor:COLORS.orange},
+    ]
+  },
+  options:{responsive:true, plugins:{legend:{position:'bottom'}}}
+});
+
+// ---------- Top 10 SKU chart ----------
+const topSku = [...DATA.sku].sort((a,b)=>(b['Total Sales (Rs)']||0)-(a['Total Sales (Rs)']||0)).slice(0,10);
+new Chart(document.getElementById('chartTopSku'), {
+  type:'bar',
+  data:{
+    labels: topSku.map(s=>s.SKU),
+    datasets:[{label:'Total Sales (Rs)', data: topSku.map(s=>s['Total Sales (Rs)']), backgroundColor:COLORS.orange}]
+  },
+  options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{y:{ticks:{autoSkip:false}}}}
+});
+
+// ---------- Return reasons chart(s) ----------
+function returnReasonsChart(canvasId){
+  const labels = Object.keys(S.return_reasons);
+  const vals = Object.values(S.return_reasons);
+  new Chart(document.getElementById(canvasId), {
+    type:'doughnut',
+    data:{labels, datasets:[{data:vals, backgroundColor:[COLORS.red,COLORS.orange,COLORS.blue,COLORS.green,COLORS.purple,COLORS.yellow,'#7d8aa3','#4c5a75']}]},
+    options:{plugins:{legend:{position:'bottom', labels:{boxWidth:12,font:{size:10}}}}}
+  });
+}
+returnReasonsChart('chartReturnReasons');
+returnReasonsChart('chartReturnReasons2');
+
+// ---------- Returns by SKU ----------
+const retBySku = {};
+DATA.ret.forEach(r=>{ retBySku[r.SKU] = (retBySku[r.SKU]||0) + (r.Qty||0); });
+const retSkuSorted = Object.entries(retBySku).sort((a,b)=>b[1]-a[1]).slice(0,10);
+new Chart(document.getElementById('chartReturnsBySku'), {
+  type:'bar',
+  data:{labels: retSkuSorted.map(x=>x[0]), datasets:[{label:'Units returned', data: retSkuSorted.map(x=>x[1]), backgroundColor:COLORS.red}]},
+  options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{y:{ticks:{autoSkip:false}}}}
+});
+
+// ---------- Daily full chart (trends tab) ----------
+new Chart(document.getElementById('chartDailyFull'), {
+  data:{
+    labels: DATA.daily.map(d=>d.Date.replace('-2026','')),
+    datasets:[
+      {type:'bar', label:'Orders', data: DATA.daily.map(d=>d.Orders), backgroundColor:'rgba(55,194,255,.35)', yAxisID:'y1'},
+      {type:'line', label:'Gross Sales', data: DATA.daily.map(d=>d['Gross Sales (Rs)']), borderColor:COLORS.blue, tension:.3, yAxisID:'y'},
+      {type:'line', label:'Net Payout', data: DATA.daily.map(d=>d['Net Payout (Rs)']), borderColor:COLORS.orange, tension:.3, yAxisID:'y',
+        pointBackgroundColor: DATA.daily.map(d=> explainDayIssue(d) ? COLORS.red : COLORS.orange),
+        pointRadius: DATA.daily.map(d=> explainDayIssue(d) ? 6 : 3),
+      },
+      {type:'line', label:'Return Rate %', data: DATA.daily.map(d=>d['Return Rate %']), borderColor:COLORS.red, borderDash:[4,3], tension:.3, yAxisID:'y2'},
+    ]
+  },
+  options:{
+    responsive:true,
+    plugins:{
+      legend:{position:'bottom'},
+      tooltip:{
+        callbacks:{
+          afterBody: (items)=>{
+            const line = items.find(i=>i.dataset.label==='Net Payout');
+            if(!line) return [];
+            const d = DATA.daily[line.dataIndex];
+            const why = explainDayIssue(d);
+            return why ? ['', '⚠ Why: ' + why] : [];
+          }
+        }
+      }
+    },
+    scales:{
+      x:{ticks:{maxRotation:60,minRotation:60}},
+      y:{position:'left', title:{display:true,text:'₹'}},
+      y1:{position:'right', grid:{drawOnChartArea:false}, title:{display:true,text:'Orders'}},
+      y2:{display:false}
+    }
+  }
+});
+
+// ---------- Generic table builder ----------
+function buildTable(tableEl, columns, rows, opts={}){
+  let sortState = {key:null, dir:1};
+  function render(data){
+    const thead = '<thead><tr>' + columns.map(c=>`<th data-key="${c.key}">${c.label}</th>`).join('') + '</tr></thead>';
+    const tbody = '<tbody>' + data.map(row=>{
+      return '<tr>' + columns.map(c=> `<td>${c.render ? c.render(row) : (row[c.key]===null||row[c.key]===undefined?'—':row[c.key])}</td>`).join('') + '</tr>';
+    }).join('') + '</tbody>';
+    tableEl.innerHTML = thead + tbody;
+    tableEl.querySelectorAll('th').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const key = th.dataset.key;
+        sortState.dir = (sortState.key===key) ? -sortState.dir : 1;
+        sortState.key = key;
+        const sorted = [...data].sort((a,b)=>{
+          let va=a[key], vb=b[key];
+          if(typeof va === 'string' && !isNaN(parseFloat(va)) && va.trim()!=='') {va=parseFloat(va);vb=parseFloat(vb);}
+          if(va===null||va===undefined) va = typeof vb==='number' ? -Infinity : '';
+          if(vb===null||vb===undefined) vb = typeof va==='number' ? -Infinity : '';
+          if(typeof va === 'string') return va.localeCompare(vb) * sortState.dir;
+          return (va-vb) * sortState.dir;
+        });
+        render(sorted);
+      });
+    });
+  }
+  render(rows);
+  return render;
+}
+
+// ---------- SKU table ----------
+const skuCols = [
+  {key:'SKU', label:'SKU', render:r=>{
+    const why = explainSkuIssue(r);
+    return why ? `<span title="${why.replace(/"/g,'&quot;')}" style="cursor:help;border-bottom:1px dotted var(--warn);">⚠ ${r.SKU}</span>` : r.SKU;
+  }},
+  {key:'ASIN', label:'ASIN'},
+  {key:'Total Sales (Rs)', label:'Sales', render:r=>fmtRs(r['Total Sales (Rs)'])},
+  {key:'Units Sold', label:'Units'},
+  {key:'Return Rate %', label:'Return %', render:r=>{
+    const v=r['Return Rate %']; const cls = v>=25?'neg':(v>=10?'':'pos');
+    return `<span class="${cls}">${fmtPct(v)}</span>`;
+  }},
+  {key:'Net Proceeds (Rs)', label:'Net Proceeds', render:r=>{
+    const v=r['Net Proceeds (Rs)']; return `<span class="${v<0?'neg':'pos'}">${fmtRs(v)}</span>`;
+  }},
+  {key:'Ad Cost (Rs)', label:'Ad Cost', render:r=>fmtRs(r['Ad Cost (Rs)'])},
+  {key:'Sessions', label:'Sessions'},
+  {key:'Conversion %', label:'Conv %', render:r=>fmtPct(r['Conversion %'])},
+  {key:'Total Stock', label:'Stock', render:r=>{
+    const v=r['Total Stock']; const cls = v===0?'red':(v<=5?'yellow':(v<=15?'yellow':'green'));
+    return `<span class="badge ${cls}">${v===null?'—':v}</span>`;
+  }},
+  {key:'Current Price (Rs)', label:'Price', render:r=>fmtRs(r['Current Price (Rs)'])},
+];
+let skuRender = buildTable(document.getElementById('tblSku'), skuCols, DATA.sku);
+function filterSku(){
+  const q = document.getElementById('skuSearch').value.toLowerCase();
+  const f = document.getElementById('skuFilter').value;
+  let rows = DATA.sku.filter(r => (r.SKU||'').toLowerCase().includes(q) || (r.ASIN||'').toLowerCase().includes(q) || (r.ProductName||'').toLowerCase().includes(q));
+  if(f==='neg') rows = rows.filter(r=>(r['Net Proceeds (Rs)']||0)<0);
+  if(f==='highreturn') rows = rows.filter(r=>(r['Return Rate %']||0)>=15);
+  if(f==='lowconv') rows = rows.filter(r=>(r.Sessions||0)>50 && (r['Conversion %']||0)<1.5);
+  if(f==='oos') rows = rows.filter(r=>(r['Total Stock']||0)===0);
+  skuRender(rows);
+}
+document.getElementById('skuSearch').oninput = filterSku;
+document.getElementById('skuFilter').onchange = filterSku;
+
+// ---------- SKU scatter ----------
+const scatterData = DATA.sku.filter(s=>s.Sessions).map(s=>({x:s.Sessions, y:s['Conversion %']||0, r: Math.max(4,Math.min(28,(s['Total Sales (Rs)']||0)/500)), label:s.SKU}));
+new Chart(document.getElementById('chartSkuScatter'), {
+  type:'bubble',
+  data:{datasets:[{label:'SKU', data: scatterData, backgroundColor:'rgba(255,153,0,.55)'}]},
+  options:{
+    plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>{
+      const d = ctx.raw; return `${d.label}: ${d.x} sessions, ${d.y}% conv`;
+    }}}},
+    scales:{x:{title:{display:true,text:'Sessions'}}, y:{title:{display:true,text:'Conversion %'}}}
+  }
+});
+
+// ---------- Inventory ----------
+document.getElementById('kpiInv').innerHTML = [
+  kpi('Out of Stock (with sales)', S.oos_count, 'bad', '₹'+fmt(S.oos_revenue_at_risk)+' revenue at risk'),
+  kpi('Critically Low (≤5 units)', S.crit_count, 'warn'),
+  kpi('Low Stock (≤15 units)', S.low_count, 'warn'),
+  kpi('Total SKUs tracked', S.total_skus),
+].join('');
+const invCols = [
+  {key:'SKU', label:'SKU', render:r=>{
+    const why = explainStockIssue(r);
+    return why ? `<span title="${why.replace(/"/g,'&quot;')}" style="cursor:help;border-bottom:1px dotted var(--warn);">⚠ ${r.SKU}</span>` : r.SKU;
+  }},
+  {key:'Period Sales (Rs)', label:'Period Sales', render:r=>fmtRs(r['Period Sales (Rs)'])},
+  {key:'Units Sold (period)', label:'Units Sold'},
+  {key:'Total Stock', label:'Total Stock'},
+  {key:'FBA Stock', label:'FBA Stock'},
+  {key:'Self-ship Stock', label:'Self-ship'},
+  {key:'StockStatus', label:'Status', render:r=>{
+    const v=r.StockStatus||''; const cls = v.includes('OUT')?'red':(v.includes('CRITICALLY')?'red':'yellow');
+    return `<span class="badge ${cls}">${v}</span>`;
+  }},
+];
+let invRender = buildTable(document.getElementById('tblInv'), invCols, [...DATA.inv].sort((a,b)=>(b['Period Sales (Rs)']||0)-(a['Period Sales (Rs)']||0)));
+function filterInv(){
+  const q = document.getElementById('invSearch').value.toLowerCase();
+  const f = document.getElementById('invFilter').value;
+  let rows = DATA.inv.filter(r => (r.SKU||'').toLowerCase().includes(q) || (r.ProductName||'').toLowerCase().includes(q));
+  if(f!=='all') rows = rows.filter(r=>r.StockStatus===f);
+  rows = [...rows].sort((a,b)=>(b['Period Sales (Rs)']||0)-(a['Period Sales (Rs)']||0));
+  invRender(rows);
+}
+document.getElementById('invSearch').oninput = filterInv;
+document.getElementById('invFilter').onchange = filterInv;
+
+// ---------- Ads ----------
+const totalSpendAds = DATA.ads.reduce((a,c)=>a+(c['Ad Spend (Rs)']||0),0);
+const totalAttrSales = DATA.ads.reduce((a,c)=>a+(c['Attributed Sales (Rs)']||0),0);
+const blendedAcos = totalSpendAds/totalAttrSales*100;
+document.getElementById('kpiAds').innerHTML = [
+  kpi('Total Ad Spend (lifetime, all campaigns)', '₹'+fmt(totalSpendAds)),
+  kpi('Attributed Sales', '₹'+fmt(totalAttrSales)),
+  kpi('Blended ACOS', fmtPct(blendedAcos), blendedAcos>30?'bad':'warn'),
+  kpi('Campaigns spending with 0 purchases', S.zero_purchase_campaigns, 'bad', '₹'+fmt(S.wasted_spend_total)+' spent, 0 sales'),
+].join('');
+
+const adsTop25 = [...DATA.ads].sort((a,b)=>(b['Ad Spend (Rs)']||0)-(a['Ad Spend (Rs)']||0)).slice(0,25);
+new Chart(document.getElementById('chartAdsScatter'), {
+  type:'bubble',
+  data:{datasets:[{label:'Campaign', data: adsTop25.map(a=>({x:a['Ad Spend (Rs)'], y:a.ACOS||0, r:Math.max(4,Math.min(24,(a.Purchases||0)*1.2)), label:a.Campaign})), backgroundColor:'rgba(255,93,108,.5)'}]},
+  options:{
+    plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>{const d=ctx.raw; return `${d.label}: ₹${fmt(d.x)} spend, ${d.y}% ACOS`;}}}},
+    scales:{x:{title:{display:true,text:'Ad Spend (Rs)'}}, y:{title:{display:true,text:'ACOS %'}}}
+  }
+});
+
+const spendByType = {};
+DATA.ads.forEach(a=>{ spendByType[a.Type||'Other'] = (spendByType[a.Type||'Other']||0) + (a['Ad Spend (Rs)']||0); });
+new Chart(document.getElementById('chartAdsType'), {
+  type:'doughnut',
+  data:{labels:Object.keys(spendByType), datasets:[{data:Object.values(spendByType), backgroundColor:[COLORS.orange,COLORS.blue,COLORS.green,COLORS.purple]}]},
+  options:{plugins:{legend:{position:'bottom'}}}
+});
+
+const adsCols = [
+  {key:'Campaign', label:'Campaign', render:r=>{
+    const why = explainCampaignIssue(r);
+    return why ? `<span title="${why.replace(/"/g,'&quot;')}" style="cursor:help;border-bottom:1px dotted var(--warn);">⚠ ${r.Campaign}</span>` : r.Campaign;
+  }},
+  {key:'Status', label:'Status'},
+  {key:'Type', label:'Type'},
+  {key:'Clicks', label:'Clicks'},
+  {key:'Ad Spend (Rs)', label:'Spend', render:r=>fmtRs(r['Ad Spend (Rs)'])},
+  {key:'Purchases', label:'Purchases'},
+  {key:'Attributed Sales (Rs)', label:'Attr. Sales', render:r=>fmtRs(r['Attributed Sales (Rs)'])},
+  {key:'ACOS', label:'ACOS', render:r=>{const v=r.ACOS; return `<span class="${v>50?'neg':''}">${fmtPct(v)}</span>`;}},
+  {key:'ROAS', label:'ROAS'},
+];
+let adsRender = buildTable(document.getElementById('tblAds'), adsCols, [...DATA.ads].sort((a,b)=>(b['Ad Spend (Rs)']||0)-(a['Ad Spend (Rs)']||0)));
+function filterAds(){
+  const q = document.getElementById('adsSearch').value.toLowerCase();
+  const f = document.getElementById('adsFilter').value;
+  let rows = DATA.ads.filter(r => (r.Campaign||'').toLowerCase().includes(q));
+  if(f==='zero') rows = rows.filter(r=>(r.Purchases||0)===0 && (r['Ad Spend (Rs)']||0)>0);
+  if(f==='highacos') rows = rows.filter(r=>(r.ACOS||0)>=50);
+  rows = [...rows].sort((a,b)=>(b['Ad Spend (Rs)']||0)-(a['Ad Spend (Rs)']||0));
+  adsRender(rows);
+}
+document.getElementById('adsSearch').oninput = filterAds;
+document.getElementById('adsFilter').onchange = filterAds;
+
+// ---------- Returns table ----------
+const retCols = [
+  {key:'Return Date', label:'Date'},
+  {key:'Order ID', label:'Order ID'},
+  {key:'SKU', label:'SKU'},
+  {key:'Qty', label:'Qty'},
+  {key:'Disposition', label:'Disposition'},
+  {key:'Reason', label:'Reason', render:r=>r.Reason||'—'},
+];
+let retRender = buildTable(document.getElementById('tblRet'), retCols, DATA.ret);
+document.getElementById('retSearch').oninput = ()=>{
+  const q = document.getElementById('retSearch').value.toLowerCase();
+  retRender(DATA.ret.filter(r => (r.SKU||'').toLowerCase().includes(q) || (r['Order ID']||'').toLowerCase().includes(q) || (r.Reason||'').toLowerCase().includes(q)));
+};
+
+// ---------- Daily / Weekly tables ----------
+const dailyCols = ['Date','Orders','Gross Sales (Rs)','Amazon Fees (Rs)','Refund Amount (Rs)','Net Payout (Rs)','Return Rate %','Avg Order Value (Rs)'].map(k=>({
+  key:k, label:k.replace(' (Rs)',''), render: (k.includes('Rs')) ? (r=>fmtRs(r[k])) : (k.includes('%') ? (r=>fmtPct(r[k])) : undefined)
+}));
+buildTable(document.getElementById('tblDaily'), dailyCols, DATA.daily);
+
+const weeklyCols = ['Week','Orders','Gross Sales (Rs)','Net Payout (Rs)','Avg Daily Net Payout (Rs)','Return Rate %','Avg Order Value (Rs)'].map(k=>({
+  key:k, label:k.replace(' (Rs)',''), render: (k.includes('Rs')) ? (r=>fmtRs(r[k])) : (k.includes('%') ? (r=>fmtPct(r[k])) : undefined)
+}));
+weeklyCols.push({key:'Ad Spend', label:'Ad Spend (Rs)', render: ()=>'<span title="Ad spend is not broken down by week in Amazon Ads reporting — see period-level ACOS/ROI below">NA</span>'});
+weeklyCols.push({key:'ACOS', label:'ACOS %', render: ()=>'<span title="ACOS is not broken down by week — see period-level ACOS/ROI below">NA</span>'});
+weeklyCols.push({key:'ROI', label:'ROI', render: ()=>'<span title="ROI is not broken down by week — see period-level ACOS/ROI below">NA</span>'});
+buildTable(document.getElementById('tblWeekly'), weeklyCols, DATA.weekly);
+const periodAcos = (DATA.summary.total_ad_cost_sku/DATA.summary.total_sales_sku*100).toFixed(2);
+const periodRoi = (DATA.summary.total_sales_sku/DATA.summary.total_ad_cost_sku).toFixed(2);
+const adPerfNote = document.createElement('div');
+adPerfNote.className = 'desc';
+adPerfNote.style.marginTop = '8px';
+adPerfNote.innerHTML = `<b>Period-level Ad Performance (1-27 Jul):</b> Ad Spend ₹${fmt(DATA.summary.total_ad_cost_sku)} · Attributed Sales ₹${fmt(DATA.summary.total_sales_sku)} · ACOS ${periodAcos}% · ROI ${periodRoi}x. Sourced from the SKU-level Ad Spend report (Advertising &gt; Campaign Manager). Not split by week because Amazon Ads reporting does not expose a daily/weekly spend breakdown per SKU in this export — hence NA in the weekly table above.`;
+document.getElementById('tblWeekly').parentElement.appendChild(adPerfNote);
+
+// ---------- Suggestions ----------
+const biz = [];
+biz.push(`<b>Restock your best-seller now.</b> ACS-001-BG-L-P1 (Beige Arm Sleeve, L/XL) is your #1 SKU by revenue (₹${fmt(12378.29)} in 24 days) and it is completely <b>out of stock</b> — every day it stays empty is lost revenue at roughly ₹${fmt(12378.29/24)}/day.`);
+biz.push(`<b>19 SKUs are critically low (≤5 units)</b> and 39 more are low (≤15 units) — most of your top-10 sellers by revenue are in this band (Black Calf Sleeve, ACS-001-BK-M-P1, Grey Arm Sleeve, ACS-001-BK-L-P1, calf_B_L/XL). Reorder these before ad spend drives more sessions to dead listings.`);
+biz.push(`<b>₹${fmt(S.wasted_spend_total)} in ad spend produced zero purchases</b> across ${S.zero_purchase_campaigns} campaigns, and several "top spend" campaigns run 55–105% ACOS (losing money per sale): "Calf Support | SB | Video" (105% ACOS), "Arm Sleeves | SP | Auto | Avg Performer" (87%), "CRICKET KIT | SP | AUTO" (74%). Pause or re-target these; the traffic isn't converting.`);
+biz.push(`<b>Blended ACOS is high</b> — total ad spend of ₹${fmt(totalSpendAds)} against ₹${fmt(totalAttrSales)} attributed sales is ${fmtPct(blendedAcos)} ACOS, and period TACoS (${fmtPct(tacos)}) means over a quarter of every sale is going to ads. Shift budget from broad/auto campaigns toward the manual/exact campaigns already returning 2x+ ROAS (e.g. "CALF SLEEVES | SP | KW | B", "ANKLE SOCKS | SP | AUTO").`);
+biz.push(`<b>7 SKUs get real traffic but barely convert</b> (B0DKFJZLBH: 647 sessions at 0.93%, WAS_L/XL: 509 sessions at 1.38%, three Cricket Kit variants under 0.7%) — these are candidates for new photos, price testing, or A+ content rather than more ad spend.`);
+biz.push(`<b>Return rate is high and volatile</b> — order-level return rate is ${fmtPct(returnRateOverall)} for the period, with several days spiking to 36–50%. The top reason is "UNDELIVERABLE_REFUSED" (${S.return_reasons['UNDELIVERABLE_REFUSED']||0} of ${DATA.ret.length} logged returns) — this points to delivery/address or COD-refusal issues more than product quality, and is worth a courier/serviceability review.`);
+biz.push(`<b>63 SKUs post negative net proceeds</b> (totalling ‑₹${fmt(Math.abs(S.neg_proceeds_total))}) after fees, fulfilment and ad cost — worst offenders include B0DKFHB7TR (‑₹4,434 net on ₹1,524 sales, a 400% return-rate flag suggesting a data or mapping error) and calf_B_S/M (71% return rate, ‑₹693 net). Worth a per-SKU profitability review before scaling ad spend on these.`);
+biz.push(`Two days had <b>negative net payout</b> (Jul 9: ‑₹4,203; Jul 20: ‑₹2,444) driven by large refund/adjustment spikes rather than normal trading — reconcile these two days against Amazon's ledger to confirm they're one-off refund batches, not a recurring pattern.`);
+document.getElementById('bizSuggestions').innerHTML = biz.map(b=>`<li>${b}</li>`).join('');
+
+const dq = [];
+dq.push(`<b>Duplicate SKU code:</b> "WAS_S/M" appears twice in the SKU sheet with identical sales/ad figures but different stock counts (14 vs 1 units) — likely two source rows merged incorrectly. Reconcile before trusting stock totals for this SKU.`);
+dq.push(`<b>Duplicate ASINs mapped to different SKU codes:</b> ASIN B0DKJB9L6R appears under both "ACS-001-BK-L-P1" and "B0DKFJZLBH" as if it were two SKUs; B0FBG4VDZS, B09CDN87WM, B09LHM8YNY (×2) and B09CDQYGGM (×3) show the same pattern. This fragments sales history for what's likely a single listing and will distort any SKU-level ranking.`);
+dq.push(`<b>${S.missing_health} of ${S.total_skus} SKUs are missing Listing Health and Star Rating data</b> — only a handful of SKUs have this populated at all, so listing-quality tracking is effectively blank for most of the catalog. Worth pulling a complete Listing Summary Report export.`);
+dq.push(`<b>Two different "return rate" definitions coexist</b> in this workbook (SKU sheet: Amazon's own P&L export; Daily/Weekly sheet: refunded orders ÷ total orders from the transaction ledger) — they won't match, and mixing them in one chart without labeling the source will mislead readers.`);
+dq.push(`<b>Advertising sheet is lifetime-to-date, not period-scoped</b> — campaign start dates range from Mar to Jul 2026, so ad totals here can't be reconciled against the Jul 1–24 P&L. A period-filtered ad export (Ad Spend within 1–24 Jul only) would let TACoS and ACOS numbers tie out cleanly.`);
+dq.push(`<b>Stock levels are a single point-in-time snapshot</b> (24 Jul 2026) rather than a daily history, so "out of stock" flags can't be tied to which specific days of the 24-day window were affected — daily inventory snapshots would let you quantify lost-sale days precisely.`);
+dq.push(`<b>Return reason is blank for ${S.return_reasons['Unspecified']||0} of ${DATA.ret.length} return line items</b> — without a reason code these can't be root-caused (product defect vs. delivery vs. buyer's remorse).`);
+document.getElementById('dataIssues').innerHTML = dq.map(b=>`<li>${b}</li>`).join('');
+
+
+// ============================================================
+// ROOT-CAUSE REASONING ENGINE
+// Every function below re-derives its explanation from the raw
+// row data at render time (nothing is hardcoded per-SKU/day/campaign),
+// so it stays correct if the underlying report is refreshed.
+// ============================================================
+
+function explainDayIssue(d){
+  const net = d['Net Payout (Rs)'] || 0;
+  const orders = d['Net from Orders (Rs)'] || 0;
+  const refund = d['Refund Amount (Rs)'] || 0;      // negative
+  const adj = d['Other Adjustments (Rs)'] || 0;       // can be + or -
+  const retRate = d['Return Rate %'] || 0;
+
+  if (net < 0) {
+    const refundDrop = refund < 0 ? -refund : 0;
+    const adjDrop = adj < 0 ? -adj : 0;
+    if (refundDrop >= adjDrop && refundDrop > 0) {
+      return `Refunds of ${fmtRs(refundDrop)} across ${d['Refunded Orders']} of ${d.Orders} orders (${fmtPct(retRate)} return rate) exceeded the day's order revenue of ${fmtRs(orders)}, pushing net payout to ${fmtRs(net)}.`;
+    }
+    if (adjDrop > refundDrop) {
+      return `A one-off "Other Adjustments" entry of ${fmtRs(adj)} (Amazon-side chargeback, fee correction, or reimbursement clawback — not a customer refund) outweighed the day's order revenue of ${fmtRs(orders)}, pushing net payout to ${fmtRs(net)}.`;
+    }
+    return `Combined fees and refunds exceeded order revenue of ${fmtRs(orders)} this day.`;
+  }
+  if (retRate >= 30) {
+    return `Return rate spiked to ${fmtPct(retRate)} (${d['Refunded Orders']} of ${d.Orders} orders refunded) — well above the period average — even though net payout stayed positive.`;
+  }
+  return null;
+}
+
+function explainSkuIssue(s){
+  const sales = s['Total Sales (Rs)'] || 0;
+  const net = s['Net Proceeds (Rs)'];
+  const retRate = s['Return Rate %'] || 0;
+  const costs = (s['Fulfilment Cost (Rs)']||0) + (s['Selling Fees (Rs)']||0) + (s['Storage Cost (Rs)']||0) + (s['Ad Cost (Rs)']||0);
+  const stock = s['Total Stock'];
+
+  if (net !== null && net !== undefined && net < 0) {
+    if (sales === 0) {
+      return `No sales this period, but ${fmtRs(costs)} in fulfilment/selling/ad costs were still charged against it — check if this SKU is delisted, merged, or mis-mapped.`;
+    }
+    const costPct = costs / sales * 100;
+    const adPct = (s['Ad Cost (Rs)']||0) / sales * 100;
+    let txt = `Fulfilment + selling fees + storage + ad cost total ${fmtRs(costs)} = ${fmtPct(costPct)} of sales revenue (${fmtRs(sales)})`;
+    if (retRate > 100) txt += `, alongside a reported return rate of ${fmtPct(retRate)} — a rate above 100% signals a data/mapping issue on this SKU (see Suggestions tab), not just heavy returns`;
+    else if (retRate >= 20) txt += `, compounded by a ${fmtPct(retRate)} return rate`;
+    txt += '.';
+    if (adPct >= 30) txt += ` Ad cost alone is ${fmtPct(adPct)} of sales — this SKU is being bought with ad spend, not converting organically.`;
+    return txt;
+  }
+  if (stock === 0 && sales > 0) {
+    return `Sold ${s['Units Sold']} units (${fmtRs(sales)}) this period but is now at zero stock — every day out of stock is roughly ${fmtRs(sales/24)} in lost daily revenue at the recent run-rate.`;
+  }
+  if (retRate >= 25 && sales > 0) {
+    return `${fmtPct(retRate)} of units sold came back as returns (${s['Units Refunded']} of ${s['Units Sold']} units) — well above the ~10-15% healthy range for this catalog.`;
+  }
+  return null;
+}
+
+function explainStockIssue(r){
+  const sales = r['Period Sales (Rs)'] || 0;
+  const status = r.StockStatus || '';
+  const units = r['Units Sold (period)'] || 0;
+  if (status.includes('OUT')) {
+    return `Sold ${units} units (${fmtRs(sales)}) in the period on zero current stock — this SKU is actively losing sales right now, not just at risk.`;
+  }
+  if (status.includes('CRITICALLY')) {
+    return `Only ${r['Total Stock']} units left against ${units} units sold in 24 days (~${(units/24).toFixed(1)}/day) — at this sell-through rate, stock runs out in roughly ${Math.max(1,Math.round(r['Total Stock']/(units/24 || 1)))} day(s).`;
+  }
+  if (status.startsWith('LOW')) {
+    return `${r['Total Stock']} units left against ${units} units sold in 24 days — worth queuing a reorder before it becomes critical.`;
+  }
+  return null;
+}
+
+function explainCampaignIssue(a){
+  const spend = a['Ad Spend (Rs)'] || 0;
+  const purchases = a['Purchases'] || 0;
+  const clicks = a['Clicks'] || 0;
+  const acos = a['ACOS'] || 0;
+  if (purchases === 0 && spend > 0) {
+    return `${fmtRs(spend)} spent across ${clicks} clicks with zero resulting purchases — either the targeting (${a.Targeting}) is pulling in the wrong audience, or the listing itself isn't converting that traffic.`;
+  }
+  if (acos >= 50 && spend > 500) {
+    const costPerSale = spend / purchases;
+    return `Cost per sale is ${fmtRs(costPerSale)} across ${purchases} purchases at ${fmtPct(acos)} ACOS. Type/targeting is ${a.Type}/${a.Targeting} — broad or automatic targeting typically pulls lower-intent clicks than manual exact-match, which is why efficiency lags here.`;
+  }
+  return null;
+}
+
+// ---------- Build the Root Cause Alerts panel ----------
+function buildAlertCards(){
+  const cards = [];
+
+  // 1. Negative / anomalous payout days
+  const dayIssues = DATA.daily.map(d=>({d, why: explainDayIssue(d)})).filter(x=>x.why && (x.d['Net Payout (Rs)']||0) < 0);
+  dayIssues.forEach(({d, why})=>{
+    cards.push({
+      flag:'high', title:`Net payout went negative — ${d.Date}`,
+      metric:fmtRs(d['Net Payout (Rs)']), why
+    });
+  });
+
+  // 2. Out-of-stock top revenue SKU(s)
+  const oosSkus = DATA.inv.filter(i=>i.StockStatus==='OUT OF STOCK').sort((a,b)=>(b['Period Sales (Rs)']||0)-(a['Period Sales (Rs)']||0));
+  oosSkus.slice(0,2).forEach(r=>{
+    cards.push({flag:'high', title:`Out of stock: ${r.SKU}`, metric: fmtRs(r['Period Sales (Rs)'])+' at risk', why: explainStockIssue(r)});
+  });
+
+  // 3. Worst negative-net-proceeds SKU
+  const worstSku = [...DATA.sku].filter(s=>s['Net Proceeds (Rs)']!==null && s['Net Proceeds (Rs)']<0).sort((a,b)=>a['Net Proceeds (Rs)']-b['Net Proceeds (Rs)'])[0];
+  if (worstSku) {
+    cards.push({flag:'high', title:`Losing money on: ${worstSku.SKU}`, metric: fmtRs(worstSku['Net Proceeds (Rs)']), why: explainSkuIssue(worstSku)});
+  }
+
+  // 4. Biggest wasted-ad-spend campaign (0 purchases)
+  const zeroCamp = [...DATA.ads].filter(a=>(a.Purchases||0)===0 && (a['Ad Spend (Rs)']||0)>0).sort((a,b)=>(b['Ad Spend (Rs)']||0)-(a['Ad Spend (Rs)']||0))[0];
+  if (zeroCamp) {
+    cards.push({flag:'med', title:`Ad spend, zero sales: ${zeroCamp.Campaign}`, metric: fmtRs(zeroCamp['Ad Spend (Rs)']), why: explainCampaignIssue(zeroCamp)});
+  }
+
+  // 5. Highest ACOS meaningful-spend campaign
+  const worstAcos = [...DATA.ads].filter(a=>(a['Ad Spend (Rs)']||0)>500).sort((a,b)=>(b.ACOS||0)-(a.ACOS||0))[0];
+  if (worstAcos) {
+    cards.push({flag:'med', title:`Worst ad efficiency: ${worstAcos.Campaign}`, metric: fmtPct(worstAcos.ACOS)+' ACOS', why: explainCampaignIssue(worstAcos)});
+  }
+
+  // 6. Highest single-day return rate (skip if already surfaced as a negative-payout day above)
+  const flaggedDates = new Set(dayIssues.map(x=>x.d.Date));
+  const worstReturnDay = [...DATA.daily].sort((a,b)=>(b['Return Rate %']||0)-(a['Return Rate %']||0))[0];
+  if (worstReturnDay && (worstReturnDay['Return Rate %']||0) >= 30 && !flaggedDates.has(worstReturnDay.Date)) {
+    cards.push({flag:'med', title:`Return-rate spike — ${worstReturnDay.Date}`, metric: fmtPct(worstReturnDay['Return Rate %']), why: explainDayIssue(worstReturnDay)});
+  }
+
+  document.getElementById('alertCards').innerHTML = cards.map(c=>`
+    <div style="background:#12182a;border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+        <span class="flag ${c.flag}">${c.flag==='high'?'HIGH IMPACT':'WATCH'}</span>
+        <span style="font-weight:700;color:${c.flag==='high'?'var(--bad)':'var(--warn)'};font-size:13px;">${c.metric}</span>
+      </div>
+      <div style="font-weight:600;font-size:13.5px;margin-bottom:6px;">${c.title}</div>
+      <div style="font-size:12.5px;color:#cfd6e4;line-height:1.5;"><span style="color:var(--muted);">Why:</span> ${c.why||'—'}</div>
+    </div>
+  `).join('');
+}
+buildAlertCards();
+}
+renderDashboard();
+
+
+
+
+// ============================================================
+// LIVE WORKBOOK LOADER (SheetJS) - re-parses the master xlsx
+// client-side and rebuilds DATA + reruns renderDashboard().
+// Suggestions/Data Issues tabs stay as generation-time analyst
+// notes (labeled below) - everything else here (KPIs, charts,
+// alert cards, tables) recomputes live from the picked file.
+// ============================================================
+function sheetRows(wb, sheetName, headerRow){
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return [];
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+  const headers = aoa[headerRow-1] || [];
+  const rows = [];
+  for (let i=headerRow; i<aoa.length; i++){
+    const r = aoa[i];
+    if (!r || r.every(v=>v===null||v==='')) continue;
+    if (r[0]===null || r[0]==='') continue;
+    if (typeof r[0] === 'string' && r[0].trim().toUpperCase() === 'TOTAL') continue;
+    const obj = {};
+    headers.forEach((h,ci)=>{ if(h!==null && h!=='') obj[h] = r[ci]===undefined?null:r[ci]; });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function buildSummaryFromSheets(sku, inv, ads, ret, daily){
+  const S = {};
+  S.total_ad_cost_sku = sku.reduce((a,s)=>a+(s['Ad Cost (Rs)']||0),0);
+  S.total_sales_sku = sku.reduce((a,s)=>a+(s['Total Sales (Rs)']||0),0);
+  const negSku = sku.filter(s=>(s['Net Proceeds (Rs)']!==null && s['Net Proceeds (Rs)']!==undefined && s['Net Proceeds (Rs)']<0));
+  S.neg_proceeds_count = negSku.length;
+  S.neg_proceeds_total = negSku.reduce((a,s)=>a+s['Net Proceeds (Rs)'],0);
+  S.top_neg_proceeds = [...negSku].sort((a,b)=>a['Net Proceeds (Rs)']-b['Net Proceeds (Rs)']).slice(0,10)
+    .map(s=>({sku:s.SKU, net:s['Net Proceeds (Rs)'], sales:s['Total Sales (Rs)']||0, return_rate:s['Return Rate %']||0}));
+  const oosRows = inv.filter(r=>(r.StockStatus||'')==='OUT OF STOCK');
+  S.oos_count = oosRows.length;
+  S.oos_revenue_at_risk = oosRows.reduce((a,r)=>a+(r['Period Sales (Rs)']||0),0);
+  S.oos_list = [...oosRows].sort((a,b)=>(b['Period Sales (Rs)']||0)-(a['Period Sales (Rs)']||0)).slice(0,10)
+    .map(r=>({sku:r.SKU, sales:r['Period Sales (Rs)']||0}));
+  S.crit_count = inv.filter(r=>(r.StockStatus||'').includes('CRITICAL')).length;
+  S.low_count = inv.filter(r=>(r.StockStatus||'').startsWith('LOW')).length;
+  const zeroCamps = ads.filter(a=>(a.Purchases||0)===0 && (a['Ad Spend (Rs)']||0)>0);
+  S.zero_purchase_campaigns = zeroCamps.length;
+  S.wasted_spend_total = zeroCamps.reduce((a,c)=>a+(c['Ad Spend (Rs)']||0),0);
+  S.high_acos_campaigns = [...ads].filter(a=>(a['Ad Spend (Rs)']||0)>500).sort((a,b)=>(b.ACOS||0)-(a.ACOS||0)).slice(0,8)
+    .map(a=>({name:a.Campaign, spend:a['Ad Spend (Rs)'], acos:a.ACOS, roas:a.ROAS, purchases:a.Purchases}));
+  const reasonCounts = {};
+  ret.forEach(r=>{ const reason = r.Reason || 'Unspecified'; reasonCounts[reason] = (reasonCounts[reason]||0)+1; });
+  S.return_reasons = reasonCounts;
+  S.low_conv_high_traffic = sku.filter(s=>(s.Sessions||0)>=100 && (s['Conversion %']||0)<1.5)
+    .sort((a,b)=>(a['Conversion %']||0)-(b['Conversion %']||0)).slice(0,10)
+    .map(s=>({sku:s.SKU, sessions:s.Sessions, conv:s['Conversion %'], sales:s['Total Sales (Rs)']||0}));
+  const skuCounts = {}, asinCounts = {};
+  sku.forEach(s=>{ if(s.SKU) skuCounts[s.SKU]=(skuCounts[s.SKU]||0)+1; if(s.ASIN) asinCounts[s.ASIN]=(asinCounts[s.ASIN]||0)+1; });
+  S.dup_sku_codes = Object.keys(skuCounts).filter(k=>skuCounts[k]>1);
+  S.dup_asins = Object.keys(asinCounts).filter(k=>asinCounts[k]>1);
+  S.missing_health = sku.filter(s=>!s['Listing Health']).length;
+  S.missing_star = sku.filter(s=>!s['Star Rating']).length;
+  S.total_skus = sku.length;
+  S.negative_payout_days = daily.filter(d=>(d['Net Payout (Rs)']||0)<0).map(d=>{
+    const refund = Math.abs(d['Refund Amount (Rs)']||0), adj = Math.abs(Math.min(0,d['Other Adjustments (Rs)']||0));
+    return {date:d.Date, payout:d['Net Payout (Rs)'], reason: refund>=adj ? 'large refund batch' : 'large one-off adjustment (fees/chargeback/reserve)'};
+  });
+  return S;
+}
+
+document.getElementById('loadWorkbookBtn').addEventListener('click', ()=>{
+  document.getElementById('workbookFileInput').click();
+});
+document.getElementById('workbookFileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('loadStatus');
+  statusEl.textContent = 'Loading ' + file.name + '...';
+  const reader = new FileReader();
+  reader.onload = (evt)=>{
+    try {
+      const wb = XLSX.read(evt.target.result, {type:'array'});
+      const daily = sheetRows(wb, 'Daily Sales & P&L', 4);
+      const weekly = sheetRows(wb, 'Weekly Sales & P&L', 4);
+      const sku = sheetRows(wb, 'SKU Performance', 4);
+      const inv = sheetRows(wb, 'Inventory Alerts', 4);
+      const ads = sheetRows(wb, 'Advertising Performance', 4);
+      const ret = sheetRows(wb, 'Returns Detail', 4);
+      if (!daily.length) throw new Error("Couldn't find a 'Daily Sales & P&L' sheet with data - is this the right workbook?");
+      const summary = buildSummaryFromSheets(sku, inv, ads, ret, daily);
+      DATA = {daily, weekly, sku, inv, ads, ret, summary};
+      renderDashboard();
+      statusEl.textContent = 'Loaded ' + file.name + ' (' + daily.length + ' days) at ' + new Date().toLocaleTimeString('en-IN');
+      statusEl.style.color = 'var(--good)';
+    } catch(err){
+      statusEl.textContent = 'Failed to load: ' + err.message;
+      statusEl.style.color = 'var(--bad)';
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+</script>
+</body>
+</html>

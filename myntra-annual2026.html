@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KUE / Anatomech — Myntra Annual Dashboard 2026</title>
+<style>
+  :root { --bg:#0f1720; --panel:#17212b; --accent:#4f9dff; --text:#e6edf3; --muted:#8b98a5; --good:#3fb950; --warn:#e3b341; }
+  body { background:var(--bg); color:var(--text); font-family:Arial, Helvetica, sans-serif; margin:0; padding:24px; }
+  h1 { font-size:22px; margin-bottom:4px; }
+  .period { color:var(--muted); margin-bottom:20px; font-size:13px; }
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:14px; margin-bottom:24px; }
+  .kpi { background:var(--panel); border-radius:8px; padding:14px 16px; }
+  .kpi .label { color:var(--muted); font-size:12px; margin-bottom:6px; }
+  .kpi .value { font-size:20px; font-weight:bold; }
+  table { width:100%; border-collapse:collapse; background:var(--panel); border-radius:8px; overflow:hidden; margin-bottom:24px; }
+  th, td { padding:8px 10px; text-align:left; border-bottom:1px solid #26313c; font-size:13px; }
+  th { background:#1c2732; color:var(--accent); }
+  .note { background:var(--panel); padding:14px; border-radius:8px; font-size:13px; color:var(--muted); line-height:1.5; margin-bottom:16px;}
+  .scope { border-left:3px solid var(--warn); padding-left:10px; }
+</style>
+</head>
+<body>
+<h1>KUE / Anatomech Myntra — Annual Rollup Dashboard 2026</h1>
+<div class="period" id="periodLine">Data period: Jul 2026 (1 of 6 months closed) | Covers Jul-Dec 2026 only, monthly grain | Generated 03-Aug-2026</div>
+
+<div class="kpi-grid" id="kpiGrid"></div>
+
+<h2>Monthly Rollup</h2>
+<table id="monthlyTable"></table>
+
+<div class="note scope">Annual rollup covers Jul-Dec 2026 only; Jan-Jun 2026 predate this business's tracking and are intentionally excluded, not missing data.</div>
+<div class="note">Baseline month (July 2026 is the only closed month so far) - no month-over-month comparison possible yet. Once August 2026 closes, a Jul-vs-Aug trend read becomes possible.</div>
+
+<script>
+let DATA = {"kpis": [["Total Order Lines", 8], ["Delivered Orders", 3], ["Cancelled Orders", 3], ["Gross Order Value (Rs)", 14198], ["Net Order Value (Rs)", 8498], ["Overdue Unsettled - 'Seller is disabled' (Rs)", 2078.89], ["Active SKUs", 50]], "monthlyHeader": ["Month", "Order Lines", "Delivered", "Cancelled", "Gross Order Value (Rs)", "Net Order Value (Rs)", "Overdue Unsettled (Rs)", "Active SKUs"], "monthlyRow": ["Jul 2026", 8, 3, 3, 14198, 8498, 2078.89, 50]};
+const fmt = n => (n===null||n===undefined||isNaN(n)) ? 'N/A' : (typeof n==='number' ? n.toLocaleString('en-IN',{maximumFractionDigits:2}) : n);
+const grid = document.getElementById('kpiGrid');
+DATA.kpis.forEach(([label, val]) => {
+  const div = document.createElement('div');
+  div.className = 'kpi';
+  div.innerHTML = `<div class="label">${label}</div><div class="value">${fmt(val)}</div>`;
+  grid.appendChild(div);
+});
+const table = document.getElementById('monthlyTable');
+let thead = '<tr>' + DATA.monthlyHeader.map(h=>`<th>${h}</th>`).join('') + '</tr>';
+let tbody = '<tr>' + DATA.monthlyRow.map(v=>`<td>${fmt(v)}</td>`).join('') + '</tr>';
+table.innerHTML = thead + tbody;
+</script>
+
+<!-- LIVE WORKBOOK LOADER (SheetJS) - re-parses the master xlsx if the user drops a refreshed copy on this page in future automation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</body>
+</html>

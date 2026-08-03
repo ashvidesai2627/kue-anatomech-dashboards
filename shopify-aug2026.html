@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KUE / Anatomech — Shopify Performance Dashboard</title>
+<style>
+:root{
+  --surface-0:#f5f4f0; --surface-1:#ffffff; --surface-2:#fbfbf9;
+  --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#898781;
+  --border:#e1e0d9; --border-strong:#c3c2b7;
+  --blue:#2a78d6; --green:#008300; --red:#d03b3b; --amber:#c98500; --violet:#4a3aa7; --aqua:#199e70;
+  --bg-danger:#fcebeb; --bg-warning:#faeeda; --bg-success:#eaf3de; --bg-accent:#e6f1fb;
+  --text-danger:#a32d2d; --text-warning:#854f0b; --text-success:#3b6d11; --text-accent:#185fa5;
+  --radius:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --surface-0:#151513; --surface-1:#1f1f1d; --surface-2:#1a1a19;
+    --text-primary:#f5f4f0; --text-secondary:#c3c2b7; --text-muted:#898781;
+    --border:#33322e; --border-strong:#46453f;
+    --bg-danger:#3a1f1f; --bg-warning:#3a2f18; --bg-success:#233419; --bg-accent:#17293a;
+    --text-danger:#f0a3a3; --text-warning:#f0c785; --text-success:#b7d98f; --text-accent:#8fbdec;
+  }
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--surface-0);color:var(--text-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.5;}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 64px;}
+header.top{position:sticky;top:0;background:var(--surface-0);z-index:10;padding:20px 0 12px;border-bottom:0.5px solid var(--border);}
+h1{font-size:22px;font-weight:500;margin:0 0 4px;}
+.period{font-size:13px;color:var(--text-secondary);margin:0 0 14px;}
+nav{display:flex;gap:6px;flex-wrap:wrap;}
+nav a{font-size:13px;color:var(--text-secondary);text-decoration:none;padding:6px 12px;border-radius:20px;border:0.5px solid var(--border);}
+nav a:hover{border-color:var(--border-strong);color:var(--text-primary);}
+section{padding:36px 0;border-bottom:0.5px solid var(--border);}
+section:last-of-type{border-bottom:none;}
+h2{font-size:18px;font-weight:500;margin:0 0 4px;}
+.sub{font-size:13px;color:var(--text-secondary);margin:0 0 18px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:28px;}
+.kpi{background:var(--surface-1);border:0.5px solid var(--border);border-radius:12px;padding:14px 16px;}
+.kpi .label{font-size:12px;color:var(--text-secondary);margin-bottom:6px;}
+.kpi .value{font-size:22px;font-weight:500;}
+.kpi .value.danger{color:var(--text-danger);}
+.kpi .value.warning{color:var(--text-warning);}
+.kpi .value.success{color:var(--text-success);}
+.card{background:var(--surface-1);border:0.5px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:18px;}
+.reason-card{border-left:3px solid var(--red);border-radius:0 12px 12px 0;background:var(--bg-danger);padding:16px 20px;margin-bottom:20px;}
+.reason-card.warning{border-left-color:var(--amber);background:var(--bg-warning);}
+.reason-card.info{border-left-color:var(--blue);background:var(--bg-accent);}
+.reason-card h3{font-size:15px;font-weight:500;margin:0 0 8px;color:var(--text-primary);}
+.reason-card p{font-size:13.5px;color:var(--text-secondary);margin:0 0 8px;}
+.reason-card ul{margin:8px 0 0;padding-left:18px;font-size:13.5px;color:var(--text-secondary);}
+.reason-card li{margin-bottom:4px;}
+details{margin-top:8px;}
+summary{cursor:pointer;font-size:13px;font-weight:500;color:var(--text-accent);}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:8px;}
+@media (max-width:700px){.chart-row{grid-template-columns:1fr;}}
+.chart-box{position:relative;width:100%;}
+.toggle-group{display:flex;gap:6px;margin-bottom:12px;}
+.toggle-btn{font-size:12.5px;padding:6px 14px;border-radius:20px;border:0.5px solid var(--border-strong);background:var(--surface-1);color:var(--text-secondary);cursor:pointer;}
+.toggle-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px;font-size:12px;color:var(--text-secondary);}
+.legend span.dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;}
+table.data-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;}
+table.data-table th{text-align:left;color:var(--text-muted);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.02em;padding:6px 10px;border-bottom:1px solid var(--border);}
+table.data-table td{padding:8px 10px;border-bottom:0.5px solid var(--border);}
+table.data-table tr:last-child td{border-bottom:none;}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;}
+.badge.danger{background:var(--bg-danger);color:var(--text-danger);}
+.badge.warning{background:var(--bg-warning);color:var(--text-warning);}
+.badge.success{background:var(--bg-success);color:var(--text-success);}
+footer{padding-top:24px;font-size:12px;color:var(--text-muted);}
+footer p{margin:0 0 8px;}
+.verdict{display:flex;gap:16px;align-items:center;background:var(--surface-1);border:0.5px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:24px;}
+.verdict .icon{font-size:22px;}
+.verdict .text{font-size:13.5px;color:var(--text-secondary);}
+.verdict .text b{color:var(--text-primary);font-weight:500;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+<h1>KUE / Anatomech — Shopify performance dashboard</h1>
+<p class="period">Data period: 1&ndash;31 Jul 2026 (31 days), FINAL &ndash; July complete and frozen &nbsp;|&nbsp; Generated 30 Jul 2026, refreshed 03-Aug-2026 (daily/weekly trend charts and 5 headline KPIs [Total Sales, Orders, AOV, Sessions, Conversion Rate] now cover the full 1&ndash;31 Jul period &ndash; funnel/channel/marketing/cohort/product breakdowns below still reflect 1&ndash;24 Jul) &nbsp;|&nbsp; All figures in INR</p>
+<div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+  <button id="loadWorkbookBtn" style="background:#2a78d6;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:500;cursor:pointer;">&#128193; Load Workbook (.xlsx)</button>
+  <input type="file" id="workbookFileInput" accept=".xlsx" style="display:none;">
+  <span id="loadStatus" style="font-size:11.5px;color:var(--text-secondary);"></span>
+</div>
+<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Loading a workbook live-refreshes the daily/weekly trend, product chart, and 5 core KPIs (Total sales, Orders, AOV, Sessions, Conversion rate). Funnel/retention/channel breakdowns and the "Why" write-ups stay as generation-time analysis.</div>
+<nav>
+<a href="#overview">Overview</a>
+<a href="#funnel">Why conversion is low</a>
+<a href="#retention">Why repeat purchase is low</a>
+<a href="#channels">Marketing ROI question</a>
+<a href="#anomaly">Week 3 dip</a>
+<a href="#products">Products</a>
+<a href="#notes">Data notes</a>
+</nav>
+</header>
+
+<section id="overview">
+<h2>Overview</h2>
+<p class="sub">Headline numbers for the period, each tying back to a live formula in the companion Excel workbook.</p>
+
+<div class="verdict">
+<div class="icon">&#9888;</div>
+<div class="text"><b>Sales are healthy, the funnel and retention are not.</b> Rs 47,332 across 42 orders is a solid 24 days, but only 1.3% of sessions convert and just 14.3% of orders come from returning customers. The three sections below walk through why, with the underlying data.</div>
+</div>
+
+<div class="kpi-grid">
+<div class="kpi"><div class="label">Total sales</div><div class="value" id="kpiTotalSales">Rs 47,332</div></div>
+<div class="kpi"><div class="label">Orders</div><div class="value" id="kpiOrders">42</div></div>
+<div class="kpi"><div class="label">Avg order value</div><div class="value" id="kpiAov">Rs 1,127</div></div>
+<div class="kpi"><div class="label">Sessions</div><div class="value" id="kpiSessions">3,023</div></div>
+<div class="kpi"><div class="label">Conversion rate</div><div class="value danger" id="kpiConvRate">1.3%</div></div>
+<div class="kpi"><div class="label">Returning cust. sales</div><div class="value warning">15.5%</div></div>
+<div class="kpi"><div class="label">Marketing-attributed sales</div><div class="value">91.3%</div></div>
+<div class="kpi"><div class="label">Product returns</div><div class="value success">0.0%</div></div>
+</div>
+
+<div class="toggle-group">
+<button class="toggle-btn active" data-view="daily">Daily</button>
+<button class="toggle-btn" data-view="weekly">Weekly</button>
+</div>
+<div class="chart-box" style="height:280px;">
+<canvas id="trendChart" role="img" aria-label="Total sales trend over the period"></canvas>
+</div>
+</section>
+
+<section id="funnel">
+<div class="reason-card">
+<h3>Why is site-wide conversion only 1.3%?</h3>
+<p>3,023 sessions produced just 40 completed checkouts. The drop happens early &mdash; before checkout is even a factor.</p>
+<ul>
+<li>Only 5.5% of all sessions ever add something to cart (165 of 3,023) &mdash; once a shopper reaches checkout, they finish 33.3% of the time, which is a healthy rate.</li>
+<li>Blog Article pages bring in 306 sessions (10% of all traffic) and generated zero cart adds &mdash; that traffic is informational, not shopping intent, and it drags the blended conversion rate down.</li>
+<li>Product pages carry 77% of sessions but only convert 6.4% of visits to a cart add &mdash; the single largest lever for improving overall conversion.</li>
+<li>Instagram is the largest paid/social channel (1,809 sessions) but converts at 1.82%, well below Facebook's 2.74% on far less traffic (328 sessions) &mdash; the biggest channel is not the most efficient one.</li>
+</ul>
+<details><summary>Show the funnel and traffic-quality evidence</summary>
+<div class="chart-row" style="margin-top:14px;">
+<div class="chart-box" style="height:240px;"><canvas id="funnelChart" role="img" aria-label="Funnel from sessions to completed checkout"></canvas></div>
+<div class="chart-box" style="height:240px;"><canvas id="landingChart" role="img" aria-label="Cart add rate by landing page type"></canvas></div>
+</div>
+</details>
+</div>
+</section>
+
+<section id="retention">
+<div class="reason-card warning">
+<h3>Why is repeat purchase so low (14.3% of orders, 15.5% of sales)?</h3>
+<p>This isn't a one-off dip &mdash; it's structural. Every acquisition cohort in the past year shows the same pattern.</p>
+<ul>
+<li>Average month-1 repurchase rate across the 11 cohorts with enough history is just 0.5% &mdash; it was this low in Jul 2025 and it's still this low in Mar 2026.</li>
+<li>No lifecycle/win-back signal shows up in the data: cohorts that grew fastest (Jan&ndash;Mar 2026, 121&ndash;149 customers each) retain no better than the small early cohorts.</li>
+<li>New customers alone drove Rs 40,000 of this period's Rs 47,332 in sales &mdash; the business is currently entirely dependent on new-customer acquisition.</li>
+</ul>
+<details><summary>Show cohort retention and new-vs-returning evidence</summary>
+<div class="chart-row" style="margin-top:14px;">
+<div class="chart-box" style="height:240px;"><canvas id="cohortChart" role="img" aria-label="Month one repeat purchase rate by acquisition cohort"></canvas></div>
+<div class="chart-box" style="height:240px;"><canvas id="nvrChart" role="img" aria-label="Sales split between new and returning customers"></canvas></div>
+</div>
+</details>
+</div>
+</section>
+
+<section id="channels">
+<div class="reason-card info">
+<h3>Why can't marketing ROI be confirmed?</h3>
+<p>88% of orders trace back to paid/social channels, but no spend or cost data was included in this export &mdash; ROAS and CPA cannot be calculated from what's available.</p>
+<ul>
+<li>Instagram carries the most traffic and the most attributed sales (Rs 40,903 across the trailing 31 days) but its conversion rate (1.82%) trails Facebook's (2.74%) &mdash; without cost data, it's impossible to say which channel is actually more profitable to fund.</li>
+<li>Direct traffic (549 sessions, the third-largest source) converts at just 0.36%, the worst of any channel with meaningful volume &mdash; worth checking whether this is bookmarked/repeat browsing or a broken attribution tag.</li>
+<li>Ask your ads platforms (Meta Ads Manager, Google Ads) directly for spend by campaign &mdash; that's the one number this export is missing.</li>
+</ul>
+<details><summary>Show channel and attribution evidence</summary>
+<div class="chart-row" style="margin-top:14px;">
+<div class="chart-box" style="height:240px;"><canvas id="channelChart" role="img" aria-label="Sessions and conversion rate by channel"></canvas></div>
+<div class="chart-box" style="height:240px;"><canvas id="marketingPie" role="img" aria-label="Sales attributed to marketing by channel"></canvas></div>
+</div>
+</details>
+</div>
+</section>
+
+<section id="anomaly">
+<h2>What happened in week 4?</h2>
+<p class="sub">Flagging this as a trend worth investigating internally &mdash; the data shows the decline clearly but not the cause. (Week boundaries corrected to real Monday&ndash;Sunday calendar weeks on 28-Jul-2026; previously this section referenced an incorrectly-bucketed "Week 3".)</p>
+<div class="reason-card warning">
+<h3>Week 4 (20&ndash;26 Jul) is the weakest full week on conversion, despite having the most traffic</h3>
+<ul>
+<li>Conversion fell to 1.03%, down steadily from 1.51% in Week 1, 1.37% in Week 2, and 1.19% in Week 3 &mdash; a consistent week-over-week decline.</li>
+<li>Week 4 had the most sessions of any week (872) yet converted the worst &mdash; traffic is growing but converting less each week.</li>
+<li>Returning-customer share swings widely with no clear trend (0% / 15.4% / 30% / 11.1% across Weeks 1&ndash;4) rather than steadily improving, consistent with the structural new-customer dependency flagged above.</li>
+<li>This lines up with no return-rate spike or stock-out in the underlying data, so the cause is more likely external (a paused campaign, a pricing/promo change, or a site issue) than a product problem &mdash; worth checking against your own calendar for that week.</li>
+</ul>
+<div class="chart-box" style="height:240px;margin-top:10px;"><canvas id="weeklyChart" role="img" aria-label="Weekly conversion rate and returning customer share"></canvas></div>
+<div class="reason-card" style="margin-top:10px;">
+<h3>Ad Spend / ACOS / ROI &mdash; NA this period</h3>
+<p class="sub">No paid ad spend data (Meta/Google Ads or similar) was captured for this Shopify store this period, so Ad Spend, ACOS, and ROI are marked <b>NA &ndash; not captured</b> for all 5 weeks. This is a data-availability gap, not a zero-spend finding &mdash; connect an ads data source to populate these going forward.</p>
+</div>
+</div>
+</section>
+
+<section id="products">
+<h2>Top products by estimated revenue</h2>
+<p class="sub">From the raw order export sample (41 of 42 orders) &mdash; see data notes for the one-order gap.</p>
+<div class="chart-box" style="height:280px;"><canvas id="productChart" role="img" aria-label="Top products by estimated revenue"></canvas></div>
+</section>
+
+<section id="notes">
+<h2>Data notes</h2>
+<footer>
+<p>Sources: Shopify Analytics report exports and order/inventory CSV exports for KUE / Anatomech, downloaded 24 Jul 2026. Full source list and every reconciliation note lives in the companion Excel workbook's "Notes &amp; Data Sources" tab.</p>
+<p>Known gaps disclosed rather than resolved silently: (1) Shopify's own reports disagree by 1 order (Rs 699) between sales-attribution and billing-location reports for 24 Jul; (2) no ad spend/cost data was included in this export, so ROAS/CPA could not be computed; (3) product revenue is estimated from a 41-of-42-order raw sample.</p>
+</footer>
+</section>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let DATA = {"dates": ["01 Aug", "02 Aug"], "daily_sales": [1419.0, 0.0], "daily_sessions": [143, 97], "daily_orders": [1, 0], "weekly_labels": ["Week 1 (Jul27-Aug2 ISO week; Aug portion only, Aug1-2)"], "weekly_sales": [1419.0], "weekly_conv": [0.42], "weekly_returnshare": [0.0], "funnel": {"sessions": 240, "cart": 19, "checkout": 14, "completed": 1}, "landing_type": {"labels": [], "sessions": [], "cart_rate": []}, "channel": {"labels": [], "sessions": [], "conv": [], "sales": []}, "marketing_pie": {"labels": [], "values": []}, "nvr_pie": {"labels": ["New", "Returning"], "values": [1419.0, 0.0]}, "cohort": {"labels": [], "retention": [], "cohort_size": []}, "products": {"labels": [], "revenue": []}, "kpis": {"total_sales": 1419, "orders": 1, "aov": 1419.0, "sessions": 240, "visitors": 220, "conv_rate": 0.42, "checkout_completion": 7.14, "returning_share": 0.0, "marketing_share": null, "min_stock": null, "return_rate": null, "avg_deliver_days": null}, "weekly_adspend": [null], "weekly_acos": [null], "weekly_roi": [null], "ad_note": "NA - no paid ad spend data source connected. AUGUST 2026 UPDATE (03-Aug-2026): Daily/Weekly/Funnel/KPI sections above now reflect the real new August workbook (2 days, Aug 1-2, pulled via ShopifyQL). Landing Page Type, Channel, Marketing Pie, New-vs-Returning Pie, Cohort Retention, and Top Products sections are EMPTY for August - no fresh channel/product/cohort breakdown queries were run this month yet (these require more granular ShopifyQL calls not made this run); they are not fabricated or carried-forward-as-current. See the frozen July dashboard for the fuller-period breakdowns."};
+const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif";
+Chart.defaults.font.family = FONT;
+Chart.defaults.color = '#898781';
+Chart.defaults.borderColor = '#e1e0d9';
+
+const COLORS = {blue:'#2a78d6', green:'#008300', magenta:'#e87ba4', yellow:'#eda100', aqua:'#1baf7a', orange:'#eb6834', violet:'#4a3aa7', red:'#e34948'};
+const PALETTE = [COLORS.blue, COLORS.green, COLORS.magenta, COLORS.yellow, COLORS.aqua, COLORS.orange, COLORS.violet, COLORS.red];
+
+function fmtRs(v){ return 'Rs ' + Math.round(v).toLocaleString('en-IN'); }
+
+let trendChart;
+function renderTrend(view){
+  const ctx = document.getElementById('trendChart');
+  const isDaily = view === 'daily';
+  const labels = isDaily ? DATA.dates : DATA.weekly_labels;
+  const values = isDaily ? DATA.daily_sales : DATA.weekly_sales;
+  if(trendChart) trendChart.destroy();
+  trendChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: labels, datasets: [{ label: 'Total sales (Rs)', data: values, borderColor: COLORS.blue, backgroundColor: COLORS.blue+'1A', fill:true, tension:0, pointRadius: isDaily?2:4, borderWidth:2 }] },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=> fmtRs(c.parsed.y) } } },
+      scales:{ y:{ ticks:{ callback:(v)=>fmtRs(v) }, grid:{color:'#e1e0d9'} }, x:{ grid:{display:false}, ticks:{ autoSkip:true, maxRotation:0 } } } }
+  });
+}
+let currentTrendView = 'daily';
+renderTrend('daily');
+document.querySelectorAll('.toggle-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTrendView = btn.dataset.view;
+    renderTrend(currentTrendView);
+  });
+});
+
+function renderOtherCharts(){
+  ['funnelChart','landingChart','cohortChart','nvrChart','channelChart','marketingPie','weeklyChart','productChart'].forEach(id=>{ const ch = Chart.getChart(id); if (ch) ch.destroy(); });
+
+new Chart(document.getElementById('funnelChart'), {
+  type:'bar',
+  data:{ labels:['Sessions','Added to cart','Reached checkout','Completed'],
+    datasets:[{ data:[DATA.funnel.sessions, DATA.funnel.cart, DATA.funnel.checkout, DATA.funnel.completed],
+      backgroundColor:[COLORS.blue, COLORS.aqua, COLORS.yellow, COLORS.green], borderRadius:4 }] },
+  options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=> c.parsed.x.toLocaleString('en-IN') + ' (' + (c.parsed.x/DATA.funnel.sessions*100).toFixed(1) + '% of sessions)' } } },
+    scales:{ x:{ grid:{color:'#e1e0d9'} }, y:{ grid:{display:false} } } }
+});
+
+new Chart(document.getElementById('landingChart'), {
+  type:'bar',
+  data:{ labels: DATA.landing_type.labels.slice(0,8),
+    datasets:[{ label:'Cart add rate %', data: DATA.landing_type.cart_rate.slice(0,8), backgroundColor: COLORS.orange, borderRadius:4 }] },
+  options:{ responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=> c.parsed.y + '% cart-add rate (' + DATA.landing_type.sessions[c.dataIndex].toLocaleString('en-IN') + ' sessions)' } } },
+    scales:{ y:{ ticks:{ callback:(v)=>v+'%' }, grid:{color:'#e1e0d9'} }, x:{ grid:{display:false}, ticks:{ autoSkip:false, maxRotation:45, minRotation:45 } } } }
+});
+
+new Chart(document.getElementById('cohortChart'), {
+  type:'line',
+  data:{ labels: DATA.cohort.labels,
+    datasets:[{ label:'Month-1 repeat purchase %', data: DATA.cohort.retention, borderColor: COLORS.red, backgroundColor: COLORS.red+'1A', fill:true, borderWidth:2, pointRadius:3 }] },
+  options:{ responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=> c.parsed.y + '% (cohort size ' + DATA.cohort.cohort_size[c.dataIndex] + ')' } } },
+    scales:{ y:{ ticks:{ callback:(v)=>v+'%' }, grid:{color:'#e1e0d9'} }, x:{ grid:{display:false} } } }
+});
+
+new Chart(document.getElementById('nvrChart'), {
+  type:'doughnut',
+  data:{ labels: DATA.nvr_pie.labels, datasets:[{ data: DATA.nvr_pie.values, backgroundColor:[COLORS.blue, COLORS.green] }] },
+  options:{ responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{position:'bottom'}, tooltip:{ callbacks:{ label:(c)=> c.label + ': ' + fmtRs(c.parsed) } } } }
+});
+
+new Chart(document.getElementById('channelChart'), {
+  type:'bar',
+  data:{ labels: DATA.channel.labels,
+    datasets:[
+      { label:'Sessions', data: DATA.channel.sessions, backgroundColor: COLORS.blue, borderRadius:4, yAxisID:'y' }
+    ] },
+  options:{ responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=> c.parsed.y.toLocaleString('en-IN') + ' sessions, ' + DATA.channel.conv[c.dataIndex] + '% conversion' } } },
+    scales:{ y:{ grid:{color:'#e1e0d9'} }, x:{ grid:{display:false} } } }
+});
+
+new Chart(document.getElementById('marketingPie'), {
+  type:'doughnut',
+  data:{ labels: DATA.marketing_pie.labels, datasets:[{ data: DATA.marketing_pie.values, backgroundColor: PALETTE }] },
+  options:{ responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{position:'bottom', labels:{boxWidth:10, font:{size:11}}}, tooltip:{ callbacks:{ label:(c)=> c.label + ': ' + fmtRs(c.parsed) } } } }
+});
+
+new Chart(document.getElementById('weeklyChart'), {
+  type:'bar',
+  data:{ labels: DATA.weekly_labels,
+    datasets:[
+      { label:'Conversion rate %', data: DATA.weekly_conv, backgroundColor: DATA.weekly_conv.map((v,i)=> i===2? COLORS.red : COLORS.blue), borderRadius:4, yAxisID:'y' }
+    ] },
+  options:{ responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=> c.parsed.y + '% conversion, ' + DATA.weekly_returnshare[c.dataIndex] + '% of customers returning' } } },
+    scales:{ y:{ ticks:{ callback:(v)=>v+'%' }, grid:{color:'#e1e0d9'} }, x:{ grid:{display:false} } } }
+});
+
+new Chart(document.getElementById('productChart'), {
+  type:'bar',
+  data:{ labels: DATA.products.labels,
+    datasets:[{ label:'Est. revenue (Rs)', data: DATA.products.revenue, backgroundColor: COLORS.blue, borderRadius:4 }] },
+  options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=> fmtRs(c.parsed.x) + ' (' + DATA.products.units[c.dataIndex] + ' units)' } } },
+    scales:{ x:{ ticks:{ callback:(v)=>fmtRs(v) }, grid:{color:'#e1e0d9'} }, y:{ grid:{display:false} } } }
+});
+
+
+}
+renderOtherCharts();
+
+document.querySelectorAll('nav a').forEach(a=>{
+  a.addEventListener('click', (e)=>{
+    e.preventDefault();
+    document.querySelector(a.getAttribute('href')).scrollIntoView({behavior:'smooth', block:'start'});
+  });
+});
+
+
+// ============================================================
+// LIVE WORKBOOK LOADER (SheetJS) - re-parses 'Daily Sales & Traffic'
+// and 'Product Performance' from the picked xlsx. Weekly rollup is
+// DERIVED from the daily rows in-browser (the xlsx's own Weekly
+// Rollup sheet uses uncached SUM formulas SheetJS cannot evaluate).
+// Funnel/retention/channel/marketing breakdowns and the "Why"
+// write-ups stay as generation-time analysis (see note above).
+// ============================================================
+function shSheetRows(wb, sheetName, headerRow){
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return [];
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+  const headers = aoa[headerRow-1] || [];
+  const rows = [];
+  for (let i=headerRow; i<aoa.length; i++){
+    const r = aoa[i];
+    if (!r || r.every(v=>v===null||v==='')) continue;
+    if (r[0]===null || r[0]==='') continue;
+    if (typeof r[0]==='string' && /^TOTAL/i.test(r[0].trim())) continue;
+    const obj = {};
+    headers.forEach((h,ci)=>{ if(h!==null && h!=='') obj[h] = r[ci]===undefined?null:r[ci]; });
+    rows.push(obj);
+  }
+  return rows;
+}
+function shStripYear(d){ return (d||'').replace(/-2026$/,''); }
+function shWeekOf(dateStr){
+  // dateStr like '01-Jul-2026'
+  const [dd,mon] = dateStr.split('-');
+  const d = new Date('2026-' + (mon==='Jul'?'07':'08') + '-' + dd);
+  if (d <= new Date('2026-07-07')) return 'Week 1 (Jul 1-7)';
+  if (d <= new Date('2026-07-14')) return 'Week 2 (Jul 8-14)';
+  if (d <= new Date('2026-07-21')) return 'Week 3 (Jul 15-21)';
+  return 'Week 4 (Jul 22+, partial)';
+}
+
+document.getElementById('loadWorkbookBtn').addEventListener('click', ()=>{
+  document.getElementById('workbookFileInput').click();
+});
+document.getElementById('workbookFileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('loadStatus');
+  statusEl.textContent = 'Loading ' + file.name + '...';
+  const reader = new FileReader();
+  reader.onload = (evt)=>{
+    try {
+      const wb = XLSX.read(evt.target.result, {type:'array'});
+      const dailyRaw = shSheetRows(wb, 'Daily Sales & Traffic', 4);
+      if (!dailyRaw.length) throw new Error("Couldn't find a 'Daily Sales & Traffic' sheet with data - is this the right workbook?");
+
+      const dates = dailyRaw.map(r=>shStripYear(r['Date']));
+      const daily_sales = dailyRaw.map(r=>r['Total Sales (Rs)']||0);
+      const daily_sessions = dailyRaw.map(r=>r['Sessions']||0);
+      const daily_orders = dailyRaw.map(r=>r['Orders']||0);
+
+      // Derive weekly rollup from daily rows (xlsx's own Weekly Rollup formulas aren't cached)
+      const weekMap = {};
+      dailyRaw.forEach(r=>{
+        const wk = shWeekOf(r['Date']);
+        if (!weekMap[wk]) weekMap[wk] = {sales:0, sessions:0, orders:0, days:0};
+        weekMap[wk].sales += (r['Total Sales (Rs)']||0);
+        weekMap[wk].sessions += (r['Sessions']||0);
+        weekMap[wk].orders += (r['Orders']||0);
+        weekMap[wk].days += 1;
+      });
+      const weekOrder = ['Week 1 (Jul 1-7)','Week 2 (Jul 8-14)','Week 3 (Jul 15-21)','Week 4 (Jul 22+, partial)'].filter(w=>weekMap[w]);
+      const weekly_labels = weekOrder;
+      const weekly_sales = weekOrder.map(w=>weekMap[w].sales);
+      const weekly_conv = weekOrder.map(w=> weekMap[w].sessions ? Math.round(weekMap[w].orders/weekMap[w].sessions*1000)/10 : 0);
+      const weekly_returnshare = DATA.weekly_returnshare; // not derivable from this sheet alone - keep snapshot
+
+      const prodRaw = shSheetRows(wb, 'Product Performance', 5);
+      const prodSorted = [...prodRaw].filter(p=>p['Est. Revenue (Rs)']).sort((a,b)=>(b['Est. Revenue (Rs)']||0)-(a['Est. Revenue (Rs)']||0)).slice(0,10);
+      const products = {
+        labels: prodSorted.map(p=>p['Product Title']),
+        revenue: prodSorted.map(p=>p['Est. Revenue (Rs)']),
+        units: prodSorted.map(p=>p['Qty Ordered (units)'])
+      };
+
+      const totalSales = daily_sales.reduce((a,v)=>a+v,0);
+      const totalOrders = daily_orders.reduce((a,v)=>a+v,0);
+      const totalSessions = daily_sessions.reduce((a,v)=>a+v,0);
+      const aov = totalOrders ? totalSales/totalOrders : 0;
+      const convRate = totalSessions ? totalOrders/totalSessions*100 : 0;
+
+      DATA = {...DATA, dates, daily_sales, daily_sessions, daily_orders, weekly_labels, weekly_sales, weekly_conv, weekly_returnshare, products};
+
+      renderTrend(currentTrendView);
+      renderOtherCharts();
+
+      document.getElementById('kpiTotalSales').textContent = fmtRs(totalSales);
+      document.getElementById('kpiOrders').textContent = totalOrders.toLocaleString('en-IN');
+      document.getElementById('kpiAov').textContent = fmtRs(aov);
+      document.getElementById('kpiSessions').textContent = totalSessions.toLocaleString('en-IN');
+      document.getElementById('kpiConvRate').textContent = convRate.toFixed(1) + '%';
+
+      statusEl.textContent = 'Loaded ' + file.name + ' (' + dates.length + ' days) at ' + new Date().toLocaleTimeString('en-IN');
+      statusEl.style.color = '#008300';
+    } catch(err){
+      statusEl.textContent = 'Failed to load: ' + err.message;
+      statusEl.style.color = '#e34948';
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+</script>
+</body>
+</html>
