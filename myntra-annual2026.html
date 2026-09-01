@@ -19,36 +19,45 @@
   .note { background:var(--panel); padding:14px; border-radius:8px; font-size:13px; color:var(--muted); line-height:1.5; margin-bottom:16px;}
   .scope { border-left:3px solid var(--warn); padding-left:10px; }
 </style>
+<style>
+  .sec { background:var(--panel); border-radius:8px; padding:14px 16px; margin-bottom:16px; }
+  .sec h3 { margin:0 0 10px 0; font-size:14px; color:var(--accent); letter-spacing:.4px; }
+  .sec ul { margin:0; padding-left:18px; }
+  .sec li { font-size:13px; line-height:1.6; margin-bottom:10px; }
+  .good h3 { color:var(--good); }
+  .warn h3 { color:var(--warn); }
+</style>
 </head>
 <body>
 <h1>KUE / Anatomech Myntra — Annual Rollup Dashboard 2026</h1>
-<div class="period" id="periodLine">Data period: Jul 2026 (1 of 6 months closed) | Covers Jul-Dec 2026 only, monthly grain | Generated 03-Aug-2026</div>
-
+<div class="period" id="periodLine">Data period: Jul-Aug 2026 (2 of 6 months closed), BOTH COMPLETE | Covers Jul-Dec 2026 only, monthly grain | Updated 01-Sep-2026 after the Partner Portal was signed back in and August was rebuilt in full; the same rebuild re-queried every month of 2026 and found the 'Seller is disabled' block is four times larger than previously recorded</div>
 <div class="kpi-grid" id="kpiGrid"></div>
-
-<h2>Monthly Rollup</h2>
+<h2>Monthly Rollup (one row per closed month)</h2>
 <table id="monthlyTable"></table>
-
-<div class="note scope">Annual rollup covers Jul-Dec 2026 only; Jan-Jun 2026 predate this business's tracking and are intentionally excluded, not missing data.</div>
-<div class="note">Baseline month (July 2026 is the only closed month so far) - no month-over-month comparison possible yet. Once August 2026 closes, a Jul-vs-Aug trend read becomes possible.</div>
-
+<div class="sec good"><h3>WHAT'S GOING RIGHT</h3><ul id="goodList"></ul></div>
+<div class="sec warn"><h3>WHAT NEEDS ATTENTION</h3><ul id="badList"></ul></div>
+<div class="note scope">Annual rollup covers Jul-Dec 2026 only, at monthly grain (one row per CLOSED month). Jan-Jun 2026 predate this business's tracking and are intentionally excluded &mdash; a scope decision, not missing data, and nothing has been estimated to fill them.</div>
+<div class="note">'Blocked Unsettled' is a POINT-IN-TIME balance covering ALL months, not a monthly flow, and must never be summed down the column: the July row shows the balance as understood at July close (Rs2,078.89 across 2 order lines) and the August row the true balance as re-verified live on 01-Sep-2026 (Rs14,017.47 across 15 order lines spanning Mar-Jul 2026). The jump is a measurement correction, not a deterioration &mdash; earlier runs had only ever queried July.</div>
 <script>
-let DATA = {"kpis": [["Total Order Lines", 8], ["Delivered Orders", 3], ["Cancelled Orders", 3], ["Gross Order Value (Rs)", 14198], ["Net Order Value (Rs)", 8498], ["Overdue Unsettled - 'Seller is disabled' (Rs)", 2078.89], ["Active SKUs", 50]], "monthlyHeader": ["Month", "Order Lines", "Delivered", "Cancelled", "Gross Order Value (Rs)", "Net Order Value (Rs)", "Overdue Unsettled (Rs)", "Active SKUs"], "monthlyRow": ["Jul 2026", 8, 3, 3, 14198, 8498, 2078.89, 50]};
-const fmt = n => (n===null||n===undefined||isNaN(n)) ? 'N/A' : (typeof n==='number' ? n.toLocaleString('en-IN',{maximumFractionDigits:2}) : n);
-const grid = document.getElementById('kpiGrid');
-DATA.kpis.forEach(([label, val]) => {
-  const div = document.createElement('div');
-  div.className = 'kpi';
-  div.innerHTML = `<div class="label">${label}</div><div class="value">${fmt(val)}</div>`;
-  grid.appendChild(div);
-});
-const table = document.getElementById('monthlyTable');
-let thead = '<tr>' + DATA.monthlyHeader.map(h=>`<th>${h}</th>`).join('') + '</tr>';
-let tbody = '<tr>' + DATA.monthlyRow.map(v=>`<td>${fmt(v)}</td>`).join('') + '</tr>';
-table.innerHTML = thead + tbody;
+let DATA = {"kpis": [["Total Order Lines Created (Jul+Aug)", 15], ["Delivered Order Lines", 9], ["Cancelled Order Lines", 4], ["ACTUALLY SETTLED, Jul + Aug (Rs)", 0], ["BLOCKED — 'Seller is disabled' (Rs)", 14017.47], ["Blocked rows / order lines", "19 rows across 15 order lines, spanning Mar-Jul 2026"], ["Oldest blocked item", "Order line 11033126085, due 29-Mar-2026 — 156 days overdue"], ["Last payment actually received", "15-Apr-2026, Rs3,735.58"], ["Next scheduled payment (02-Sep-2026)", "NEGATIVE Rs6,779.77 — Myntra expects to recover, not pay"], ["Total Outstanding (portal, 31-Aug-2026)", "-Rs1,193.19 net"], ["Active SKUs", "50 (Business Growth Dashboard, 01-Sep-2026)"], ["GMV Jul-Sep'26 QTD (portal widget)", "Rs17,644 for 1 Jul - 31 Aug'26, +92% vs last quarter"]], "monthlyHeader": ["Month", "Order Lines", "Delivered", "Cancelled", "Order Value (Rs)", "Expected / Net Value (Rs)", "Blocked Unsettled (Rs, all months)", "Active SKUs"], "monthlyRows": [["Jul 2026", 8, 3, 3, 14198, 8498, 2078.89, 50], ["Aug 2026 (value cols on Seller Product Amount / Expected Settlement basis)", 7, 6, 1, 8936.0, 5557.34, 14017.47, 50]], "good": ["<b>Demand is actually growing on this platform, which every previous read missed.</b> August produced 7 order lines against July's 8, but concentrated into two days (19-Aug and 21-Aug) and at a higher value per line, with 6 of the 7 delivered inside 5&ndash;7 days. The 21-Aug reading of 'three order lines, Rs0' was simply incomplete &mdash; four more landed on 21-Aug itself, after that run.", "<b>Delivery performance improved sharply</b>, from 3 of 8 order lines delivered in July to 6 of 7 in August, and the cancellation share more than halved.", "<b>Myntra's own GMV widget agrees:</b> Rs17,644 for 1 Jul &ndash; 31 Aug'26, up 92% on the prior quarter, with 50 active listings and Silver tier held.", "<b>The 'zero sellable inventory' theory now looks wrong, which is good news.</b> A month producing seven order lines &mdash; three of them the same SKU on a single day &mdash; is not running on a catalogue at zero sellable inventory. The demand problem is far smaller than feared; the payment problem is the real one."], "bad": ["<b>The 'Seller is disabled' block is four times bigger than any previous record and runs back to March: Rs14,017.47 across 19 payment rows and 15 distinct order lines, none settled.</b> Every earlier run reported Rs3,518.50 across 4 order lines because only July had ever been queried. By order-creation month: Mar Rs4,130.13, Apr Rs2,463.75, May Rs1,435.61, Jun Rs2,469.48, Jul Rs3,518.50. January and February are clean, so the block starts with an order line due 29-Mar-2026 &mdash; now 156 days overdue. <b>This is the single most important open item across all four platforms.</b>", "<b>The seller has not been paid since 15-Apr-2026.</b> That is the last payment the portal records (Rs3,735.58), and it lines up exactly with a block beginning in late March. Two closed months of tracking have produced Rs0 of realised cash on this platform.", "<b>The next scheduled payment is negative.</b> On 02-Sep-2026 the portal projects a net -Rs6,779.77 (Postpaid -Rs10,542.04 against Prepaid +Rs3,762.27) &mdash; Myntra expects to recover money rather than pay it. Total Outstanding at 31-Aug is also net negative at -Rs1,193.19.", "<b>August's Rs5,557.34 of expected settlement all falls due in September</b> (8, 9, 10 and 12 Sep). Whether it is paid depends entirely on whether the disabled-seller status clears first. If it does not, the blocked total passes Rs19,500.", "<b>A fifth July line has gone past due without being flagged:</b> order line 11307169577 (delivered 12-Aug, due 27-Aug-2026, expected Rs1,037.507) is overdue and unsettled, yet carries Delay Reason 'Payment Not Due'. If it flips to 'Seller is disabled', the block is still growing.", "<b>Myntra's own health scores are all POOR:</b> 64% of the catalogue non-competitively priced, 100% of listings classed low-impression, 39 products losing shoppers for lack of ratings, and no new catalogue uploaded in 30 days.", "<b>The two months' value columns are on different bases and must not be summed blindly</b> &mdash; July is MRP/customer-paid from the MDirect export, August is Seller Product Amount / Expected Settlement from the Payment Details service, because no MDirect export has been available since 28-Jul-2026. The order-line, delivered and cancelled counts ARE directly comparable."]};
+const fmt = n => (n===null||n===undefined) ? 'N/A' : (typeof n==='number' ? (isNaN(n)?'N/A':n.toLocaleString('en-IN',{maximumFractionDigits:2})) : n);
+function render() {
+  const grid = document.getElementById('kpiGrid'); grid.innerHTML='';
+  DATA.kpis.forEach(([label, val]) => {
+    const div=document.createElement('div'); div.className='kpi';
+    div.innerHTML = `<div class="label">${label}</div><div class="value">${fmt(val)}</div>`;
+    grid.appendChild(div);
+  });
+  const table=document.getElementById('monthlyTable');
+  const thead='<tr>'+DATA.monthlyHeader.map(h=>`<th>${h}</th>`).join('')+'</tr>';
+  const tbody=DATA.monthlyRows.map(r=>'<tr>'+r.map(v=>`<td>${fmt(v)}</td>`).join('')+'</tr>').join('');
+  table.innerHTML=thead+tbody;
+  document.getElementById('goodList').innerHTML=DATA.good.map(t=>`<li>${t}</li>`).join('');
+  document.getElementById('badList').innerHTML=DATA.bad.map(t=>`<li>${t}</li>`).join('');
+}
+render();
 </script>
-
-<!-- LIVE WORKBOOK LOADER (SheetJS) - re-parses the master xlsx if the user drops a refreshed copy on this page in future automation -->
+<!-- LIVE WORKBOOK LOADER (SheetJS) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </body>
 </html>

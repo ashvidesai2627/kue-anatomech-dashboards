@@ -19,36 +19,54 @@
   .note { background:var(--panel); padding:14px; border-radius:8px; font-size:13px; color:var(--muted); line-height:1.5; margin-bottom:16px;}
   .scope { border-left:3px solid var(--warn); padding-left:10px; }
 </style>
+<style>
+  .sec { background:var(--panel); border-radius:8px; padding:14px 16px; margin-bottom:16px; }
+  .sec h3 { margin:0 0 10px 0; font-size:14px; color:var(--accent); letter-spacing:.4px; }
+  .sec ul { margin:0; padding-left:18px; }
+  .sec li { font-size:13px; line-height:1.6; margin-bottom:10px; }
+  .good h3 { color:var(--good); }
+  .warn h3 { color:var(--warn); }
+  td.partial { color:var(--warn); }
+</style>
 </head>
 <body>
 <h1>KUE / Anatomech Amazon.in — Annual Rollup Dashboard 2026</h1>
-<div class="period" id="periodLine">Data period: Jul 2026 (1 of 6 months closed) | Covers Jul-Dec 2026 only, monthly grain | Generated 03-Aug-2026</div>
+<div class="period" id="periodLine">Data period: Jul-Aug 2026 (2 of 6 months closed) | Covers Jul-Dec 2026 only, monthly grain | Updated 01-Sep-2026 on the month-rollover run, pulling August's figures straight from the frozen August workbook's own reconciled Dashboard totals</div>
 
 <div class="kpi-grid" id="kpiGrid"></div>
 
-<h2>Monthly Rollup</h2>
+<h2>Monthly Rollup (one row per closed month)</h2>
 <table id="monthlyTable"></table>
 
-<div class="note scope">Annual rollup covers Jul-Dec 2026 only; Jan-Jun 2026 predate this business's tracking and are intentionally excluded, not missing data.</div>
-<div class="note">Baseline month (July 2026 is the only closed month so far) - no month-over-month comparison possible yet. Once August 2026 closes, a Jul-vs-Aug trend read becomes possible.</div>
+<div class="sec good"><h3>WHAT'S GOING RIGHT</h3><ul id="goodList"></ul></div>
+<div class="sec warn"><h3>WHAT NEEDS ATTENTION</h3><ul id="badList"></ul></div>
+
+<div class="note scope">Annual rollup covers Jul-Dec 2026 only, at monthly grain (one row per CLOSED month). Jan-Jun 2026 predate this business's tracking and are intentionally excluded &mdash; that is a scope decision, not missing data, and nothing has been estimated to fill those months.</div>
+<div class="note">August's row was rebuilt from scratch on 01-Sep-2026 after the August monthly workbook's 1-20 Aug rows were found to be materially overstated; the whole month was re-pulled day by day from the live Seller Central transaction ledger and reconciled twice (as 31 daily windows and as a single whole-month query, both returning 869 transactions). Blank cells in the July row are columns that the July workbook did not publish; they are not zeros.</div>
 
 <script>
-let DATA = {"kpis": [["Net Payout Received (Rs)", 161565.37], ["Gross Product Sales (Rs)", 363535.62], ["Total Refunds (Rs)", 48137.46], ["Distinct Orders", 659], ["Average Order Value (Rs)", 551.65], ["Order-level Return Rate %", 11.38], ["Total Ad Spend (Rs)", 62584.18], ["TACoS %", 26.56], ["SKUs Out of Stock", 1], ["SKUs Critically Low", 19]], "monthlyHeader": ["Month", "Order Lines", "Orders", "Gross Sales (Rs)", "Net Payout (Rs)", "Refund Amount (Rs)", "Return Rate %", "AOV (Rs)", "Avg Daily Net Payout (Rs)"], "monthlyRow": ["Jul 2026", 659, 659, 363535.62, 161565.37, -48137.46, 11.38, 551.65, 5211.79]};
-const fmt = n => (n===null||n===undefined||isNaN(n)) ? 'N/A' : (typeof n==='number' ? n.toLocaleString('en-IN',{maximumFractionDigits:2}) : n);
-const grid = document.getElementById('kpiGrid');
-DATA.kpis.forEach(([label, val]) => {
-  const div = document.createElement('div');
-  div.className = 'kpi';
-  div.innerHTML = `<div class="label">${label}</div><div class="value">${fmt(val)}</div>`;
-  grid.appendChild(div);
-});
-const table = document.getElementById('monthlyTable');
-let thead = '<tr>' + DATA.monthlyHeader.map(h=>`<th>${h}</th>`).join('') + '</tr>';
-let tbody = '<tr>' + DATA.monthlyRow.map(v=>`<td>${fmt(v)}</td>`).join('') + '</tr>';
-table.innerHTML = thead + tbody;
+let DATA = {"kpis": [["Net Payout Received (Rs)", 290919.64], ["Gross Product Sales (Rs)", 730284.61], ["Total Refunds (Rs)", 88058.8], ["Distinct Orders", 1307], ["Average Order Value (Rs)", 558.75], ["Order-level Return Rate %", 11.4], ["Total Ad Spend (Rs)", 149348.06], ["TACoS %", 20.45], ["Avg Daily Net Payout (Rs)", 4692.25], ["SKUs Out of Stock", "July only: 1 — not re-measured in August"], ["SKUs Critically Low", "July only: 19 — not re-measured in August"]], "monthlyHeader": ["Month", "Order Lines", "Orders", "Gross Sales (Rs)", "Promo Rebates (Rs)", "Amazon Fees (Rs)", "Net Payout (Rs)", "Refund Amount (Rs)", "Return Rate %", "AOV (Rs)", "Avg Daily Net Payout (Rs)"], "monthlyRows": [["Jul 2026", 659, 659, 363535.62, null, null, 161565.37, -48137.46, 11.38, 551.65, 5211.79], ["Aug 2026", 648, 648, 366748.99, -15682.93, -76029.7, 129354.27, -39921.34, 11.42, 565.97, 4172.72]], "good": ["<b>August held July's top line while spending less to get it.</b> Gross sales Rs366,748.99 against Rs363,535.62 (+0.9%) on 648 orders against 659 (&minus;1.7%), with TACoS falling from 26.56% to 23.66%. AOV rose from Rs551.65 to Rs565.97 (+2.6%) &mdash; the same revenue from slightly fewer, slightly bigger orders, bought more cheaply.", "<b>The refund bill fell 17.1%</b>, from Rs48,137.46 to Rs39,921.34, even though the order-level return rate was essentially flat (11.38% to 11.42%). Rupees returned per refunded order fell from Rs641.83 to Rs539.48, which points at cheaper items coming back rather than a worsening return problem.", "<b>August finished accelerating.</b> Weekly order counts ran 118 &rarr; 99 &rarr; 130 &rarr; 220 across the month's four complete ISO weeks, and 31-Aug was the single biggest gross-sales day of the month at Rs24,892.47 on 43 order lines, at the month's lowest daily return rate (6.98%).", "<b>August's figures are now verified to a standard July's never were.</b> All 31 days were re-pulled from the live ledger and reconciled against Amazon's own per-day item counter (869 transactions), and an independent whole-month query returned exactly the same 869 rows."], "bad": ["<b>Net payout fell 19.9% month-on-month &mdash; and effectively all of it is one line.</b> A single unreversed 'Other &mdash; Fee Adjustment' of Rs38,673.70 posted on 10-Aug-2026 and never came back. Excluding it, August payout would have been Rs168,027.97, i.e. ABOVE July, on flat sales and lower ad spend. This is an adjustments event, not a trading decline. It should be escalated to Seller Support.", "<b>The August workbook's figures were wrong until 01-Sep-2026 and had to be rebuilt.</b> Its stored 1-20 Aug rows claimed 628 orders and Rs358,842.67 gross for twenty days, against 322 orders and Rs178,507.62 on the live ledger for those same days &mdash; close to a 2x overstatement, caused by day query windows spilling into the following day. Any Amazon figure quoted externally between 03-Aug and 21-Aug-2026 should be restated from the frozen final version.", "<b>August closes with no SKU-level view at all.</b> SKU Performance, Advertising Performance, Inventory Alerts and Returns Detail were never rebuilt during August and still carry 24-Jul-2026 exports. Out-of-stock counts, per-SKU profitability, per-SKU return rates and campaign-level ACOS simply do not exist for the month, which is why two KPIs above read 'July only'.", "<b>Advertising is a bigger cash drain than returns.</b> August carried Rs86,763.88 of Cost-of-Advertising service fees against Rs39,921.34 of refunds. Because it posts inside 'Other Adjustments' rather than in the Amazon Fees column, it is easy to under-read."]};
+const fmt = n => (n===null||n===undefined) ? 'N/A' : (typeof n==='number' ? (isNaN(n)?'N/A':n.toLocaleString('en-IN',{maximumFractionDigits:2})) : n);
+function render() {
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = '';
+  DATA.kpis.forEach(([label, val]) => {
+    const div = document.createElement('div');
+    div.className = 'kpi';
+    div.innerHTML = `<div class="label">${label}</div><div class="value">${fmt(val)}</div>`;
+    grid.appendChild(div);
+  });
+  const table = document.getElementById('monthlyTable');
+  const thead = '<tr>' + DATA.monthlyHeader.map(h=>`<th>${h}</th>`).join('') + '</tr>';
+  const tbody = DATA.monthlyRows.map(r => '<tr>' + r.map(v=>`<td>${fmt(v)}</td>`).join('') + '</tr>').join('');
+  table.innerHTML = thead + tbody;
+  document.getElementById('goodList').innerHTML = DATA.good.map(t=>`<li>${t}</li>`).join('');
+  document.getElementById('badList').innerHTML  = DATA.bad.map(t=>`<li>${t}</li>`).join('');
+}
+render();
 </script>
 
-<!-- LIVE WORKBOOK LOADER (SheetJS) - re-parses the master xlsx if the user drops a refreshed copy on this page in future automation -->
+<!-- LIVE WORKBOOK LOADER (SheetJS) - re-parses the master xlsx if a refreshed copy is dropped on this page in future automation -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </body>
 </html>

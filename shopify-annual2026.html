@@ -19,36 +19,54 @@
   .note { background:var(--panel); padding:14px; border-radius:8px; font-size:13px; color:var(--muted); line-height:1.5; margin-bottom:16px;}
   .scope { border-left:3px solid var(--warn); padding-left:10px; }
 </style>
+<style>
+  .sec { background:var(--panel); border-radius:8px; padding:14px 16px; margin-bottom:16px; }
+  .sec h3 { margin:0 0 10px 0; font-size:14px; color:var(--accent); letter-spacing:.4px; }
+  .sec ul { margin:0; padding-left:18px; }
+  .sec li { font-size:13px; line-height:1.6; margin-bottom:10px; }
+  .good h3 { color:var(--good); }
+  .warn h3 { color:var(--warn); }
+  td.partial { color:var(--warn); }
+</style>
 </head>
 <body>
 <h1>KUE / Anatomech Shopify — Annual Rollup Dashboard 2026</h1>
-<div class="period" id="periodLine">Data period: Jul 2026 (1 of 6 months closed) | Covers Jul-Dec 2026 only, monthly grain | Generated 03-Aug-2026</div>
+<div class="period" id="periodLine">Data period: Jul-Aug 2026 (2 of 6 months closed) | Covers Jul-Dec 2026 only, monthly grain | Updated 01-Sep-2026 on the month-rollover run from the frozen August workbook's own reconciled Dashboard totals</div>
 
 <div class="kpi-grid" id="kpiGrid"></div>
 
-<h2>Monthly Rollup</h2>
+<h2>Monthly Rollup (one row per closed month)</h2>
 <table id="monthlyTable"></table>
 
-<div class="note scope">Annual rollup covers Jul-Dec 2026 only; Jan-Jun 2026 predate this business's tracking and are intentionally excluded, not missing data.</div>
-<div class="note">Baseline month (July 2026 is the only closed month so far) - no month-over-month comparison possible yet. Once August 2026 closes, a Jul-vs-Aug trend read becomes possible.</div>
+<div class="sec good"><h3>WHAT'S GOING RIGHT</h3><ul id="goodList"></ul></div>
+<div class="sec warn"><h3>WHAT NEEDS ATTENTION</h3><ul id="badList"></ul></div>
+
+<div class="note scope">Annual rollup covers Jul-Dec 2026 only, at monthly grain (one row per CLOSED month). Jan-Jun 2026 predate this business's tracking and are intentionally excluded &mdash; that is a scope decision, not missing data, and nothing has been estimated to fill those months.</div>
+<div class="note">Note on the two YTD ratio KPIs: site-wide conversion and checkout completion are session-weighted blends of the two closed months, computed by summing each month's completed checkouts and dividing by summed sessions (and by summed checkouts-reached respectively). July's completed and reached counts were back-derived from its own published rates and session count, since the July workbook publishes rates rather than raw funnel counts; August's are raw. Nothing is estimated beyond that stated derivation.</div>
 
 <script>
-let DATA = {"kpis": [["Total Sales (Rs)", 61281], ["Distinct Orders", 53], ["Average Order Value (Rs)", 1156.25], ["Total Sessions", 3796], ["Conversion Rate %", 1.32], ["Checkout Completion %", 31.85], ["Returning Customer Share %", 18.0], ["Marketing-Attributed Sales Share %", 91.3], ["Return Rate %", 0.0]], "monthlyHeader": ["Month", "Orders", "Total Sales (Rs)", "AOV (Rs)", "Sessions", "Visitors", "Conversion Rate %", "Returning Cust Share %"], "monthlyRow": ["Jul 2026", 53, 61281, 1156.25, 3796, 3556, 1.32, 18.0]};
-const fmt = n => (n===null||n===undefined||isNaN(n)) ? 'N/A' : (typeof n==='number' ? n.toLocaleString('en-IN',{maximumFractionDigits:2}) : n);
-const grid = document.getElementById('kpiGrid');
-DATA.kpis.forEach(([label, val]) => {
-  const div = document.createElement('div');
-  div.className = 'kpi';
-  div.innerHTML = `<div class="label">${label}</div><div class="value">${fmt(val)}</div>`;
-  grid.appendChild(div);
-});
-const table = document.getElementById('monthlyTable');
-let thead = '<tr>' + DATA.monthlyHeader.map(h=>`<th>${h}</th>`).join('') + '</tr>';
-let tbody = '<tr>' + DATA.monthlyRow.map(v=>`<td>${fmt(v)}</td>`).join('') + '</tr>';
-table.innerHTML = thead + tbody;
+let DATA = {"kpis": [["Total Sales (Rs)", 121907], ["Distinct Orders", 103], ["Average Order Value (Rs)", 1183.56], ["Total Sessions", 7040], ["Unique Visitors", 6587], ["Site-wide Conversion Rate %", 1.39], ["Checkout Completion Rate %", 26.13], ["Returning Customer Sales Share %", "July only: 18.0% — not measured for August"], ["Marketing-Attributed Sales Share %", "July only: 91.3% — not measured for August"], ["Product Return Rate %", "July only: 0% — not measured for August"], ["Avg Days to Deliver", "July only: 6.2 — not measured for August"]], "monthlyHeader": ["Month", "Orders", "Total Sales (Rs)", "AOV (Rs)", "Sessions", "Visitors", "Conversion Rate %", "Checkout Completion %", "Returning Cust Share %", "Return Rate %"], "monthlyRows": [["Jul 2026", 53, 61281, 1156.25, 3796, 3556, 1.32, 31.85, 18, 0], ["Aug 2026", 50, 60626, 1212.52, 3244, 3031, 1.48, 22.02, 18.37, "N/A — never measured for August"]], "good": ["<b>August was essentially a repeat of July on the headline numbers, not a collapse.</b> Total sales Rs60,626 against Rs61,281 (&minus;1.1%) on 50 orders against 53 (&minus;5.7%), with AOV UP from Rs1,156.25 to Rs1,212.52 (+4.9%).", "<b>Data quality on this platform is excellent and improving.</b> August closed with three independent Shopify report families &mdash; the daily timeseries, a whole-month period aggregate and a product-level GROUP BY &mdash; agreeing on Rs57,746 gross to the rupee, and every re-pulled prior day across the whole month reproduced exactly. Shopify is the only one of the four platforms that needed no corrections in August.", "<b>Fulfilment kept pace.</b> August delivered 50 orders against 50 placed, so nothing was queued into September."], "bad": ["<b>Checkout completion deteriorated sharply, from 31.85% in July to 22.02% in August</b> &mdash; a 31% relative fall and the clearest negative trend across the two closed months. Roughly four in five people who reached the August checkout did not finish, against two in three in July. Worst evidence: 29-Aug drew 156 sessions (the month's biggest traffic day), took six to checkout, and converted none.", "<b>Traffic fell 14.5% and conversion did not pick up the slack.</b> Sessions dropped from 3,796 to 3,244 and visitors from 3,556 to 3,031, while conversion rose only from 1.32% to 1.48% &mdash; exactly enough to hold revenue flat and no more.", "<b>August's shape was front-loaded and ended at zero.</b> Weekly total sales ran Rs1,419 / 12,229 / 23,318 / 15,808 / 7,852 / 0. September starts from a materially softer base than the monthly average implies: compare early September against Week 5's 8 orders, not against the Rs23,318 peak week.", "<b>Four of the eleven YTD KPIs above read 'July only'</b> because five tabs were never rebuilt during August (Product Performance, Inventory Detail, Marketing &amp; Channels, Customer Analysis, Fulfillment &amp; Returns). No August figure exists for marketing attribution, product return rate, delivery time or returning-customer sales share, and none has been estimated.", "<b>Revenue concentration is extreme.</b> The Sports Combo bundle alone was Rs37,770 of August's Rs57,746 gross (65.4%) across 27 of 50 orders."]};
+const fmt = n => (n===null||n===undefined) ? 'N/A' : (typeof n==='number' ? (isNaN(n)?'N/A':n.toLocaleString('en-IN',{maximumFractionDigits:2})) : n);
+function render() {
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = '';
+  DATA.kpis.forEach(([label, val]) => {
+    const div = document.createElement('div');
+    div.className = 'kpi';
+    div.innerHTML = `<div class="label">${label}</div><div class="value">${fmt(val)}</div>`;
+    grid.appendChild(div);
+  });
+  const table = document.getElementById('monthlyTable');
+  const thead = '<tr>' + DATA.monthlyHeader.map(h=>`<th>${h}</th>`).join('') + '</tr>';
+  const tbody = DATA.monthlyRows.map(r => '<tr>' + r.map(v=>`<td>${fmt(v)}</td>`).join('') + '</tr>').join('');
+  table.innerHTML = thead + tbody;
+  document.getElementById('goodList').innerHTML = DATA.good.map(t=>`<li>${t}</li>`).join('');
+  document.getElementById('badList').innerHTML  = DATA.bad.map(t=>`<li>${t}</li>`).join('');
+}
+render();
 </script>
 
-<!-- LIVE WORKBOOK LOADER (SheetJS) - re-parses the master xlsx if the user drops a refreshed copy on this page in future automation -->
+<!-- LIVE WORKBOOK LOADER (SheetJS) - re-parses the master xlsx if a refreshed copy is dropped on this page in future automation -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </body>
 </html>

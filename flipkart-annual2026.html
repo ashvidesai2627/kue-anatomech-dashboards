@@ -19,36 +19,45 @@
   .note { background:var(--panel); padding:14px; border-radius:8px; font-size:13px; color:var(--muted); line-height:1.5; margin-bottom:16px;}
   .scope { border-left:3px solid var(--warn); padding-left:10px; }
 </style>
+<style>
+  .sec { background:var(--panel); border-radius:8px; padding:14px 16px; margin-bottom:16px; }
+  .sec h3 { margin:0 0 10px 0; font-size:14px; color:var(--accent); letter-spacing:.4px; }
+  .sec ul { margin:0; padding-left:18px; }
+  .sec li { font-size:13px; line-height:1.6; margin-bottom:10px; }
+  .good h3 { color:var(--good); }
+  .warn h3 { color:var(--warn); }
+</style>
 </head>
 <body>
 <h1>KUE / Anatomech Flipkart — Annual Rollup Dashboard 2026</h1>
-<div class="period" id="periodLine">Data period: Jul 2026 (1 of 6 months closed) | Covers Jul-Dec 2026 only, monthly grain | Generated 03-Aug-2026</div>
-
+<div class="period" id="periodLine">Data period: Jul-Aug 2026 (2 of 6 months closed), BOTH COMPLETE on the live-settlement basis | Covers Jul-Dec 2026 only, monthly grain | Updated 01-Sep-2026 after Seller Hub was signed back in and the whole of August was re-pulled (303 order items, every row reconciled)</div>
 <div class="kpi-grid" id="kpiGrid"></div>
-
-<h2>Monthly Rollup</h2>
+<h2>Monthly Rollup (one row per closed month)</h2>
 <table id="monthlyTable"></table>
-
-<div class="note scope">Annual rollup covers Jul-Dec 2026 only; Jan-Jun 2026 predate this business's tracking and are intentionally excluded, not missing data.</div>
-<div class="note">Baseline month (July 2026 is the only closed month so far) - no month-over-month comparison possible yet. Once August 2026 closes, a Jul-vs-Aug trend read becomes possible.</div>
-
+<div class="sec good"><h3>WHAT'S GOING RIGHT</h3><ul id="goodList"></ul></div>
+<div class="sec warn"><h3>WHAT NEEDS ATTENTION</h3><ul id="badList"></ul></div>
+<div class="note scope">Annual rollup covers Jul-Dec 2026 only, at monthly grain (one row per CLOSED month). Jan-Jun 2026 predate this business's tracking and are intentionally excluded &mdash; a scope decision, not missing data, and nothing has been estimated to fill them.</div>
+<div class="note">COLUMN-PERIOD WARNING: the two bases cover different windows. The live-settlement columns are COMPLETE for both closed months (1-31 Jul and 1-31 Aug). The official-export columns are NOT &mdash; July is capped at 1-24 Jul and August at 1-6 Aug, because those depend on user-uploaded Sales Report exports. Compare months on the settlement columns only. The Apr-Jun 2026 third-party tracker rows held in the companion workbook are kept separate from these reconciled columns and are not shown here.</div>
 <script>
-let DATA = {"kpis": [["Gross Sales, 1-24 Jul Earnings Summary (Rs)", 132978], ["Net Earnings, 1-24 Jul (Rs)", 42574], ["Return Rate % (1-24 Jul)", 30.29], ["Live Settlement Order Items (1-31 Jul)", 343], ["Live Settlement Sale Amt (Rs, 1-31 Jul)", 122573], ["Live Settlement Amt (Rs, 1-31 Jul)", 87521.23], ["Live Settlement AOV (Rs)", 357.36], ["Active SKUs", 423]], "monthlyHeader": ["Month", "Earnings Summary Period", "Gross Sales (Rs)", "Net Earnings (Rs)", "Return Rate %", "Live Settlement Items", "Live Settlement Sale Amt (Rs)", "Live Settlement Amt (Rs)"], "monthlyRow": ["Jul 2026", "1-24 Jul (capped)", 132978, 42574, 30.29, 343, 122573, 87521.23]};
-const fmt = n => (n===null||n===undefined||isNaN(n)) ? 'N/A' : (typeof n==='number' ? n.toLocaleString('en-IN',{maximumFractionDigits:2}) : n);
-const grid = document.getElementById('kpiGrid');
-DATA.kpis.forEach(([label, val]) => {
-  const div = document.createElement('div');
-  div.className = 'kpi';
-  div.innerHTML = `<div class="label">${label}</div><div class="value">${fmt(val)}</div>`;
-  grid.appendChild(div);
-});
-const table = document.getElementById('monthlyTable');
-let thead = '<tr>' + DATA.monthlyHeader.map(h=>`<th>${h}</th>`).join('') + '</tr>';
-let tbody = '<tr>' + DATA.monthlyRow.map(v=>`<td>${fmt(v)}</td>`).join('') + '</tr>';
-table.innerHTML = thead + tbody;
+let DATA = {"kpis": [["Live Settlement Order Items (Jul+Aug)", 646], ["Live Settlement Sale Amount (Rs)", 231011.11], ["Live Settlement Amount (Rs)", 166281.32], ["Live Settlement AOV (Rs)", 357.6], ["Settlement as % of Sale (YTD)", 71.98], ["Gross Sales, official basis (Rs)", "161,690 — Jul 1-24 + Aug 1-6 windows ONLY"], ["Net Earnings, official basis (Rs)", "16,892.44 — Jul 1-24 + Aug 1-6 windows ONLY"], ["Order-level Return Rate %", "Jul 30.29% (1-24 Jul) | Aug 19.23% (1-6 Aug) — not summable"], ["Active SKUs", "Jul: 423 (29-Jul) | Aug: 392 (12-Aug) — point-in-time"], ["SKUs Out of Stock", "Jul: 1 (29-Jul) | Aug: 21 (12-Aug) — point-in-time"]], "monthlyHeader": ["Month", "Official-export window", "Gross Sales (Rs)", "Net Earnings (Rs)", "Return Rate %", "Settlement Order Items", "Settlement Sale Amt (Rs)", "Settlement Amt (Rs)", "Settlement AOV (Rs)"], "monthlyRows": [["Jul 2026", "1-24 Jul (Earnings Summary, capped)", 132978, 42574, 30.29, 343, 122573, 87521.23, 357.36], ["Aug 2026", "1-6 Aug (P&L Report, capped). Settlement columns COMPLETE for 1-31 Aug.", 28712, -25681.56, 19.23, 303, 108438.11, 78760.09, 357.88]], "good": ["<b>August beat July on every settlement measure that matters except raw volume.</b> Order items fell 343 &rarr; 303, but average order value rose Rs357.36 &rarr; Rs357.88, the settlement-to-sale ratio improved 71.4% &rarr; 72.6%, and settlement per order item rose Rs255.16 &rarr; Rs259.93.", "<b>August finished on its strongest week.</b> The last complete ISO week (24&ndash;30 Aug) settled Rs20,254.23 on 57 order items at a 95.3% settlement-to-sale ratio, with refunds of only Rs889 &mdash; three of its seven days had zero refunds.", "<b>Basket size is trending up.</b> Weekly AOV inside August ran Rs312.04 &rarr; 338.93 &rarr; 353.81 &rarr; 396.12 &rarr; 373.02 &rarr; 402.40. The August blend of Rs357.88 is the highest this rollup has recorded.", "<b>Paid ads are profitable.</b> Campaign Manager for 26-Aug to 1-Sep shows Rs6.77K of spend returning Rs21.85K of attributed revenue &mdash; ROI 3.23, CTR 1.81%, CVR 1.42% across 65 campaigns.", "<b>August is now the most thoroughly verified Flipkart month on record.</b> All 303 rows pass the internal identity check to the paisa, both window row-counts match the page's own declared transaction counts, and the aggregate reproduces the page's summary strip on every column but Taxes, which differs by Rs0.10."], "bad": ["<b>Refunds are the structural problem, not fees.</b> August returned Rs27,616.11 against Rs108,438.11 of sale value &mdash; 25.47% of everything sold came back, and only 72.63% of sale value converted into settlement. Marketplace fees took just 4.0%. A five-point cut in the refund rate was worth roughly Rs5,400 in August alone.", "<b>Flipkart days stay provisional far longer than Flipkart claims.</b> The platform says settlements 'reflect within 2 days of dispatch'. In practice every single day of 1&ndash;20 Aug read low on 21-Aug and grew materially by 01-Sep, mostly through late refunds &mdash; 09-Aug's refund line moved from -Rs741 to -Rs2,250, 13-Aug's from -Rs307 to -Rs1,648. Never quote a recent Flipkart day externally.", "<b>19-Aug is a genuine unresolved anomaly.</b> It settled Rs114.72 on 2 order items, nine times worse than any other day, with Rs180 of marketplace fees on Rs607 of sale value &mdash; a 29.7% fee rate against a 4.0% monthly average. Twelve days of back-fill barely moved it. Raise with Seller Support.", "<b>The official Sales-Report basis is badly incomplete for both closed months</b> &mdash; 1&ndash;24 Jul and 1&ndash;6 Aug only, because it depends on user-uploaded exports. There is still no per-SKU profitability view for either month, and columns 3&ndash;5 of the table above must never be read as monthly totals.", "<b>Organic reach is shrinking.</b> Seller Hub's Traffic Report flags impressions down 12% over 30 days (9.1K on 30-Aug, 8.3K on 29-Aug), improved from -22% over 7 days on 21-Aug but still negative. Paid ads at 3.23x are carrying the channel.", "<b>Quality complaints and the refund rate are almost certainly the same story:</b> 29 listings flagged for 'different product received', 'quality not as expected' and 'damaged product received', with Flipkart's own GMV-loss estimate at Rs1,334."]};
+const fmt = n => (n===null||n===undefined) ? 'N/A' : (typeof n==='number' ? (isNaN(n)?'N/A':n.toLocaleString('en-IN',{maximumFractionDigits:2})) : n);
+function render() {
+  const grid = document.getElementById('kpiGrid'); grid.innerHTML='';
+  DATA.kpis.forEach(([label, val]) => {
+    const div=document.createElement('div'); div.className='kpi';
+    div.innerHTML = `<div class="label">${label}</div><div class="value">${fmt(val)}</div>`;
+    grid.appendChild(div);
+  });
+  const table=document.getElementById('monthlyTable');
+  const thead='<tr>'+DATA.monthlyHeader.map(h=>`<th>${h}</th>`).join('')+'</tr>';
+  const tbody=DATA.monthlyRows.map(r=>'<tr>'+r.map(v=>`<td>${fmt(v)}</td>`).join('')+'</tr>').join('');
+  table.innerHTML=thead+tbody;
+  document.getElementById('goodList').innerHTML=DATA.good.map(t=>`<li>${t}</li>`).join('');
+  document.getElementById('badList').innerHTML=DATA.bad.map(t=>`<li>${t}</li>`).join('');
+}
+render();
 </script>
-
-<!-- LIVE WORKBOOK LOADER (SheetJS) - re-parses the master xlsx if the user drops a refreshed copy on this page in future automation -->
+<!-- LIVE WORKBOOK LOADER (SheetJS) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </body>
 </html>

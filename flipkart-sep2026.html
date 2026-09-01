@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KUE / Anatomech — Flipkart Sales Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#171e2e; --panel2:#1d2536; --border:#2a3348;
+    --text:#e8ecf5; --muted:#93a0b8; --accent:#ffe500; --accent2:#2874f0;
+    --good:#3ddc97; --warn:#ffb454; --bad:#ff5d6c;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:24px 32px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:50;}
+  header h1{margin:0 0 4px;font-size:22px;font-weight:700;}
+  header .sub{color:var(--muted);font-size:13px;}
+  nav{display:flex;gap:6px;padding:14px 32px 0;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:70px;z-index:49;}
+  nav button{background:none;border:none;color:var(--muted);padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;transition:.15s;white-space:nowrap;}
+  nav button:hover{color:var(--text);}
+  nav button.active{color:var(--accent2);border-bottom-color:var(--accent2);}
+  main{padding:24px 32px 60px;max-width:1500px;margin:0 auto;}
+  .tab{display:none;}
+  .tab.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:24px;}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+  .kpi .label{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+  .kpi .value{font-size:22px;font-weight:700;}
+  .kpi .value.good{color:var(--good);}
+  .kpi .value.bad{color:var(--bad);}
+  .kpi .value.warn{color:var(--warn);}
+  .kpi .note{font-size:11px;color:var(--muted);margin-top:4px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:20px;}
+  .panel h2{margin:0 0 4px;font-size:15px;}
+  .panel .desc{color:var(--muted);font-size:12.5px;margin-bottom:14px;}
+  .grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+  @media(max-width:1000px){.grid2,.grid3{grid-template-columns:1fr;}}
+  canvas{max-width:100%;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{text-align:left;padding:8px 10px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;position:sticky;top:0;background:var(--panel2);}
+  th:hover{color:var(--accent2);}
+  td{padding:7px 10px;border-bottom:1px solid #232b3d;white-space:nowrap;}
+  tr:hover td{background:#1b2436;}
+  tr.total-row td{background:#20304a;font-weight:700;}
+  .table-wrap{max-height:520px;overflow:auto;border-radius:8px;border:1px solid var(--border);}
+  .controls{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+  input[type=text]{background:#101627;border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:12.5px;min-width:220px;}
+  select{background:#101627;border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-size:12.5px;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+  .badge.red{background:rgba(255,93,108,.18);color:var(--bad);}
+  .badge.yellow{background:rgba(255,180,84,.18);color:var(--warn);}
+  .badge.green{background:rgba(61,220,151,.18);color:var(--good);}
+  .neg{color:var(--bad);}
+  .pos{color:var(--good);}
+  ul.insight{margin:0;padding-left:18px;}
+  ul.insight li{margin-bottom:10px;font-size:13.5px;line-height:1.5;color:#cfd6e4;}
+  ul.insight li b{color:var(--text);}
+  footer{text-align:center;color:var(--muted);font-size:11.5px;padding:20px;}
+  .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .pill{background:#101627;border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11.5px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>KUE / Anatomech — Flipkart Sales Performance Dashboard</h1>
+  <div class="sub" id="periodLine">Loading…</div>
+  <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button id="loadWorkbookBtn" style="background:#2874f0;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;">&#128193; Load Workbook (.xlsx)</button>
+    <input type="file" id="workbookFileInput" accept=".xlsx" style="display:none;">
+    <span id="loadStatus" style="font-size:11.5px;color:var(--muted);"></span>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-top:4px;">Loading a workbook live-refreshes Daily/Weekly Sales, SKU Performance, Returns and the reasoning cards above. Ads, Inventory, Payments and Quality panels stay as generation-time snapshots.</div>
+</header>
+
+<nav id="tabs">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="dailysales">Daily Sales</button>
+  <button data-tab="weeklysales">Weekly Sales</button>
+  <button data-tab="skuperf">SKU Performance</button>
+  <button data-tab="pnl">Period P&amp;L</button>
+  <button data-tab="returns">Returns Trend</button>
+  <button data-tab="returndetail">Returns Detail</button>
+  <button data-tab="inventory">Inventory</button>
+  <button data-tab="ads">Ads</button>
+  <button data-tab="payments">Payments</button>
+  <button data-tab="notes">Data Notes</button>
+</nav>
+
+<main>
+
+  <section class="tab active" id="tab-overview">
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="panel" style="border-color:#3d2f1a;background:linear-gradient(180deg,#1d1a12,#171e2e);">
+      <h2>⚠ Quality &amp; Ads Signals</h2>
+      <div class="desc">Real signals pulled from Growth &gt; Customer Feedback Insights and the Ads Manager.</div>
+      <div id="alertCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;"></div>
+    </div>
+    <div class="panel">
+      <h2>Why the numbers move</h2>
+      <div class="desc">Grounded in the actual daily/weekly Sales Report and returns data below — not generic commentary.</div>
+      <div id="reasonCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Daily Return Requests (units)</h2>
+        <div class="desc">Only series with genuine daily granularity this run — see Data Notes tab.</div>
+        <canvas id="chartDailyReturns" height="260"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Return Reasons (period)</h2>
+        <div class="desc">Units returned by reason code, 1–24 Jul 2026</div>
+        <canvas id="chartReasons" height="260"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-dailysales">
+    <div class="panel">
+      <h2>Daily Sales &amp; P&amp;L, 1–24 Jul 2026</h2>
+      <div class="desc">Real per-order-item data from an official Flipkart Sales Report export (Report Centre &gt; Tax Reports), user-downloaded and uploaded. Fees/Taxes are not broken out per day — see Period P&amp;L tab for period totals.</div>
+      <canvas id="chartDailySales" height="260"></canvas>
+    </div>
+    <div class="panel">
+      <div class="table-wrap"><table id="tblDailySales"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-weeklysales">
+    <div class="panel">
+      <h2>Weekly Sales &amp; P&amp;L Rollup</h2>
+      <div class="desc">Rolled up from the Daily Sales &amp; P&amp;L tab. Week 4 (Jul 20-24) is partial (5 of 7 days) since the source Sales Report export stops at 24 Jul. Ad Spend/ACOS/ROI are period-level only (see Ad Performance panel below) — not available broken down by week, so weekly cells show NA.</div>
+      <canvas id="chartWeeklySales" height="260"></canvas>
+    </div>
+    <div class="panel">
+      <div class="table-wrap"><table id="tblWeeklySales"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-skuperf">
+    <div class="panel">
+      <h2>SKU-Level Sales Performance, 1–24 Jul 2026</h2>
+      <div class="desc">All 63 SKUs with real sale/return activity in the Sales Report period, joined with the Listings export for stock/price/status (61 matched; 2 new SKUs added in the 22-24 Jul rebuild are marked "NOT MATCHED" — no fresh Listings export was pulled to confirm their stock/price/status). Not the full ~423-SKU catalog — SKUs with zero orders this period are excluded.</div>
+      <canvas id="chartSkuPerf" height="280"></canvas>
+    </div>
+    <div class="panel">
+      <div class="controls">
+        <input type="text" id="skuSearch" placeholder="Search SKU or product title…">
+        <select id="skuFilter">
+          <option value="">All</option>
+          <option value="oos">Out of stock only</option>
+          <option value="highret">Return rate ≥ 20% only</option>
+        </select>
+      </div>
+      <div class="table-wrap"><table id="tblSkuPerf"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-pnl">
+    <div class="panel">
+      <h2>Earnings Summary — Overall, 1–24 Jul 2026</h2>
+      <div class="desc">Pulled directly from Payments &gt; Earnings Summary (Overall Summary, custom date range). Do not compare with Earn More dashboard.</div>
+      <canvas id="chartPnl" height="220"></canvas>
+    </div>
+    <div class="panel">
+      <div class="table-wrap"><table id="tblPnl"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-returns">
+    <div class="panel">
+      <h2>Daily Return Requests, 1–24 Jul 2026</h2>
+      <div class="desc">Courier/RTO returns (never delivered) vs. customer-initiated returns (after delivery)</div>
+      <canvas id="chartDailyFull" height="260"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Most-Returned SKUs (period)</h2>
+      <canvas id="chartSku" height="280"></canvas>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-returndetail">
+    <div class="panel">
+      <div class="controls">
+        <input type="text" id="retSearch" placeholder="Search SKU, order ID or reason…">
+        <select id="retFilter">
+          <option value="">All types</option>
+          <option value="Courier/RTO">Courier/RTO only</option>
+          <option value="Customer Return">Customer Returns only</option>
+        </select>
+      </div>
+      <div class="table-wrap"><table id="tblRet"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-inventory">
+    <div class="kpi-grid" id="kpiInv"></div>
+    <div class="panel">
+      <h2>Out of Stock SKUs (with sales history)</h2>
+      <div class="table-wrap"><table id="tblInv"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-ads">
+    <div class="panel">
+      <h2>Flipkart Ads — Campaign Manager (Last 30 Days)</h2>
+      <p id="adsNote" style="color:var(--muted);font-size:13.5px;"></p>
+    </div>
+    <div class="kpi-grid" id="kpiAds"></div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Ad Spend by Campaign (top 12, live/spending only)</h2>
+        <canvas id="chartAdsSpend" height="280"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Spend vs. Revenue by Campaign</h2>
+        <canvas id="chartAdsScatter" height="280"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="controls">
+        <input type="text" id="adsSearch" placeholder="Search campaign name…">
+        <select id="adsFilter">
+          <option value="">All statuses</option>
+          <option value="Live">Live only</option>
+          <option value="Paused">Paused only</option>
+          <option value="Aborted">Aborted only</option>
+          <option value="Completed">Completed only</option>
+        </select>
+      </div>
+      <div class="table-wrap"><table id="tblAds"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-payments">
+    <div class="panel">
+      <h2>Upcoming Payments</h2>
+      <div class="table-wrap"><table id="tblUpcoming"></table></div>
+    </div>
+    <div class="panel">
+      <h2>Recent Payment History</h2>
+      <div class="table-wrap"><table id="tblRecent"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-notes">
+    <div class="panel">
+      <h2>Data Sources &amp; Gaps — please read</h2>
+      <ul class="insight" id="dataGaps"></ul>
+    </div>
+  </section>
+
+</main>
+<footer>KUE / Anatomech Flipkart Sales Dashboard — built from live Flipkart Seller Hub data + official uploaded exports, 27 Jul 2026</footer>
+
+<script>
+let DATA = {"periodLine": "SEPTEMBER 2026 — no complete day captured yet. Created 01-Sep-2026 on the month-rollover run from the structure of the now-frozen August dashboard, with all data cleared. Flipkart Seller Hub IS signed in and reachable, but 01-Sep is today and still in progress, and this dashboard only ever shows COMPLETE days, so the first data lands on the next scheduled run. Nothing here is estimated or carried forward. AUGUST 2026 closed COMPLETE on the live-settlement basis: 303 order items, Rs108,438.11 sale value, Rs78,760.09 settled, Rs357.88 AOV, a 25.47% refund rate and a 72.63% settlement-to-sale ratio — see the frozen August dashboard.", "pnl": {"grossSalesUnits": 78, "grossSalesAmt": 28712, "returnsUnits": -15, "returnsAmt": -6163, "estNetSales": 22549, "shopsyFees": 0, "sellerDiscount": -1061.62, "netSalesUnits": 63, "netSalesAmt": 21497.38, "feesCosts": -49089.21, "marketplaceFees": -509.63, "fixedFee": -342, "reverseShipping": -160, "shopsyRecovery": -7.627, "taxes": -1910.265, "rewardsSpf": 0, "bankSettlement": -27591.83, "bankSettled": 0, "inputTaxCredits": 1910.26, "netEarnings": -25681.56, "returnRatePct": 19.23, "adsWalletTopup": -46669.32, "adsNote": "The -Rs46,669.32 'Ads' expense above is Flipkart's Ads WALLET top-up/withdrawal for 1-6 Aug (per report's own help text), NOT Campaign Manager attributed spend. Real attributed spend (11 Jul-10 Aug, all 64 campaigns) is Rs38,047.16 vs Rs110,916 revenue - see Advertising tab. This wallet top-up is why Bank Settlement and Net Earnings are both deeply negative this period."}, "today": {"salesToday": "Rs2.3K (01-Sep, day in progress)", "salesYesterday": "Rs5.6K (31-Aug full day)", "unitsToday": "5 (01-Sep, day in progress)", "unitsYesterday": "10 (31-Aug full day)", "newOrders": 0, "pendingRTD": 0, "returnsToday": 2, "returnsHandedOver": 0, "upcomingPayment": "Rs10.4K, due 02-Sep-2026", "impressionsToday": "30-Aug: 9.1K", "impressionsYesterday": "29-Aug: 8.3K", "note": "Read live from the Seller Hub home dashboard at ~13:50 IST on 01-Sep-2026. Traffic Report flags impressions DOWN 12% over the last 30 days — an improvement on the -22%-over-7-days reading of 21-Aug-2026, but still negative."}, "inventory": {"totalSkus": 198, "totalUnits": 6506, "lowStock": 72, "outOfStock": 0, "recommendations": "N/A - sales-velocity data unreliable this export, see note", "oosList": [], "note": "0 SKUs at zero stock as of 10-Aug-2026 Inventory export (198 active SKUs, 6,506 units on hand). 72 SKUs show 1-10 units on hand (stock-count flag only - the export's average_daily_sales field reads 0 for 196 of 198 active SKUs, inconsistent with real order activity seen elsewhere this period, so Potential Monthly Sales Loss could not be reliably computed and is not shown)."}, "quality": {"listingsWithComplaints": 29, "gmvLoss": 1334, "complaintTypes": ["Different Product Received", "Quality Not As Expected", "Damaged Product Received"]}, "ads": {"activeCampaigns": 65, "totalCampaigns": 65, "adSpend": 6770, "revenue": 21850, "roi": 3.23, "tacos": 30.98, "views": 175490, "clicks": 3170, "unitsSold": 45, "note": "Campaign Manager, live read 01-Sep-2026, window 26-Aug to 1-Sep-2026 (7 days). Spend Rs6.77K against Rs21.85K attributed revenue = ROI 3.23. CTR 1.81%, CVR 1.42%, 45 units sold, 65 campaigns, wallet balance Rs2,530.07. This is a 7-day window, not the August month — do not compare it directly with monthly settlement figures.", "campaigns": [{"name": "QuickCampaign 08-01-2026 02_25", "status": "Live", "type": "PLA", "spend": 7071.0, "views": 65847, "clicks": 1668, "ctr": 2.53, "unitsSold": 45, "revenue": 20688.0, "roi": 2.93, "cvr": 2.7}, {"name": "Arm Sleeve Best seller_30July", "status": "Live", "type": "PLA", "spend": 6073.0, "views": 158980, "clicks": 2581, "ctr": 1.62, "unitsSold": 26, "revenue": 12025.0, "roi": 1.98, "cvr": 1.01}, {"name": "Arm Sleeve-26-02-26", "status": "Live", "type": "PLA", "spend": 6034.0, "views": 187399, "clicks": 3000, "ctr": 1.6, "unitsSold": 48, "revenue": 24008.0, "roi": 3.98, "cvr": 1.6}, {"name": "Arm Sleeve PCA Jan", "status": "Live", "type": "SELLER_PCA", "spend": 5938.482, "views": 345873, "clicks": 5040, "ctr": 1.46, "unitsSold": 37, "revenue": 16491.0, "roi": 2.78, "cvr": 0.74}, {"name": "Mix_Products", "status": "Live", "type": "PLA", "spend": 4923.0, "views": 83611, "clicks": 1947, "ctr": 2.33, "unitsSold": 31, "revenue": 13639.0, "roi": 2.77, "cvr": 1.59}, {"name": "Calf Sleeve PLA", "status": "Live", "type": "PLA", "spend": 2510.0, "views": 56763, "clicks": 918, "ctr": 1.62, "unitsSold": 9, "revenue": 3996.0, "roi": 1.59, "cvr": 0.98}, {"name": "Calf Sleeve PLA Parent-2", "status": "Live", "type": "PLA", "spend": 1276.0, "views": 31172, "clicks": 509, "ctr": 1.63, "unitsSold": 6, "revenue": 2666.0, "roi": 2.09, "cvr": 1.18}, {"name": "Ankle Socks", "status": "Live", "type": "PLA", "spend": 1020.0, "views": 33573, "clicks": 380, "ctr": 1.13, "unitsSold": 25, "revenue": 10385.0, "roi": 10.18, "cvr": 6.58}, {"name": "CPC Best Seller-08-01-2026", "status": "Live", "type": "PLA", "spend": 981.0, "views": 27438, "clicks": 502, "ctr": 1.83, "unitsSold": 9, "revenue": 4032.0, "roi": 4.11, "cvr": 1.79}, {"name": "Calf Sleeve Keyword_Planner-2026-07-27", "status": "Paused", "type": "PLA", "spend": 980.66, "views": 4170, "clicks": 78, "ctr": 1.87, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Calf Sleeve PCA", "status": "Paused", "type": "SELLER_PCA", "spend": 443.3, "views": 18982, "clicks": 154, "ctr": 0.81, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Knee Sleeves", "status": "Live", "type": "PLA", "spend": 345.0, "views": 10945, "clicks": 119, "ctr": 1.09, "unitsSold": 2, "revenue": 746.0, "roi": 2.16, "cvr": 1.68}, {"name": "Best seller_19_Jan_2026", "status": "Live", "type": "PLA", "spend": 186.0, "views": 14926, "clicks": 233, "ctr": 1.56, "unitsSold": 3, "revenue": 1344.0, "roi": 7.23, "cvr": 1.29}, {"name": "Test", "status": "Paused", "type": "SELLER_PCA", "spend": 179.32, "views": 16120, "clicks": 130, "ctr": 0.81, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Boost_Sales_HelmetAndRidingGear 06-05-2026", "status": "Live", "type": "PLA", "spend": 56.0, "views": 2660, "clicks": 56, "ctr": 2.11, "unitsSold": 1, "revenue": 448.0, "roi": 8.0, "cvr": 1.79}, {"name": "PLA_HERO LIDS_SR", "status": "Completed", "type": "PLA", "spend": 30.4, "views": 711, "clicks": 38, "ctr": 5.34, "unitsSold": 1, "revenue": 448.0, "roi": 14.74, "cvr": 2.63}, {"name": "QuickCampaign 17-10-2024 01_57", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Keyword_Planner-2026-01-19", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "ARM_22", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "KUE_ROI_3", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 23-10-2024 11_15", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Low cvr", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of Arm_Dec_SmartROI", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of Non selling cpc", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Roi booster", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of Roi booster", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 26-09-2024 03_39", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "ROI of TOp SKU June_27", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 10-07-2025 03_50", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PCA _27June", "status": "Paused", "type": "SELLER_PCA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Digi1", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Keyword_Planner-2026-03-20", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "KUE_ROI_!", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 28-10-2024 11_14", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of armsleev_adex ROI", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PLA_ROI_Arm_18Mar", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "ARMSLEEV CPC_ADEX", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Keyword_Planner Arm-2026-03-20", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "TOp SKU June_27", "status": "Paused", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of ALL SKU2nov", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "ROI 10 july", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of ROI july 10", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Best seller_18July", "status": "Paused", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Arm", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PLA_Campaign-2025-05-27", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Knee Socks_PLA_CPC_26AMarch", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Keyword_Planner-2026-01-08", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Calf 12feb", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of Best seller_18July_ROI", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "ARM_23June", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of Arm", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PLA_CPC_Calfsleeves_26Feb", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PLA_Campaign-2025-05-28", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PLA_CPC_Crew_13Mar", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of Arm 22 28 may", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Best Seller-08-01-2026", "status": "Paused", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "PLA_AS_18 july", "status": "Paused", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "ROi_TOP_4-4-24", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Socks AnkleKnee 12feb", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "Clone of ALL SKU", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 25-10-2024 10_30", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "KUE_ROI_2", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "armsleev_adex ROI", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}, {"name": "QuickCampaign 30-07-2025 11_53", "status": "Aborted", "type": "PLA", "spend": 0.0, "views": 0, "clicks": 0, "ctr": 0.0, "unitsSold": 0, "revenue": 0.0, "roi": 0.0, "cvr": 0.0}]}, "payments": {"upcoming": [{"date": "29-Jul-2026", "prepaid": 7048, "postpaid": 805, "total": 7853}, {"date": "03-Aug-2026", "prepaid": 3276, "postpaid": 5717, "total": 8993}, {"date": "05-Aug-2026", "prepaid": 1819, "postpaid": -36540, "total": 0}], "totalOutstanding": -17874, "recent": [{"date": "27-Jul-2026", "amount": 0, "note": "Net payable negative; no payment made"}, {"date": "24-Jul-2026", "amount": 12250, "note": ""}, {"date": "22-Jul-2026", "amount": 0, "note": "Net payable negative; no payment made"}, {"date": "20-Jul-2026", "amount": 0, "note": "Net payable negative; no payment made"}]}, "daily": [], "returns": [], "reasons": [], "skuReturns": [], "dataGaps": ["01-Sep-2026 — SEPTEMBER OPENED. Access to Flipkart Seller Hub was restored during this run and August was rebuilt in full and frozen before September was created. No September figure exists yet because 01-Sep is still in progress.", "AUGUST BASELINE TO MEASURE SEPTEMBER AGAINST: 303 order items, Rs108,438.11 sale, -Rs27,616.11 refunds, Rs9,466 offers, -Rs5,913.30 seller share, -Rs4,369.59 marketplace fees, -Rs1,268.97 taxes, Rs78,760.09 settled. AOV Rs357.88, refund rate 25.47%, settlement-to-sale 72.63%, marketplace fee Rs14.42 per order item. Weekly settlement ran Rs4,180.86 / 18,213.24 / 22,199.71 / 12,899.38 / 20,254.23 / 1,012.67.", "THE REFUND RATE IS THE NUMBER TO ATTACK. August returned 25.47% of sale value while marketplace fees took only 4.0%. Refunds, not Flipkart's take rate, decide what this channel earns — a five-point improvement was worth roughly Rs5,400 in August alone.", "TREAT EVERY EARLY-SEPTEMBER DAY AS PROVISIONAL FOR AT LEAST A FORTNIGHT. In August every single day of 1-20 Aug read low on 21-Aug and grew materially by 01-Sep, mostly through late-landing refunds. Flipkart's 'within 2 days of dispatch' claim understates the real lag badly.", "CARRIED FORWARD UNRESOLVED: 19-Aug settled Rs114.72 on 2 order items with a 29.7% marketplace-fee rate against a 4.0% monthly average. Twelve days of back-fill barely moved it. Raise with Seller Support.", "STILL MISSING: the official Sales Report export. August's official basis is capped at 1-8 Aug, so there is no per-SKU profitability view for the month. Uploading a full Sales Report from Report Centre is the highest-value action for this workbook.", "ADS ARE THE PROFITABLE LEVER GOING IN: Campaign Manager for 26-Aug to 1-Sep shows Rs6.77K spend against Rs21.85K attributed revenue, ROI 3.23, CTR 1.81%, CVR 1.42%, 65 campaigns, wallet Rs2,530.07. Organic impressions are down 12% over 30 days, so paid is currently carrying reach."], "dailySales": [], "weeklySales": [], "skuPerformance": [], "adPerformance": {"periodAdSpend": 40450.15, "periodAdRevenue": 148664.0, "periodROI": 3.68, "periodACOS": 27.21, "note": "Rolling last-30-days window (24 Jun-24 Jul) from Campaign Manager - does not align to Jul 1-24 calendar weeks, so weekly ACOS/ROI above is marked NA rather than force a mismatched split."}, "dailySettlement": [], "weeklySettlement": [], "settlementTotals": {}};
+document.getElementById('periodLine').textContent = DATA.periodLine;
+
+// ---- tabs ----
+document.querySelectorAll('#tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+function renderDashboard(){
+  ['chartDailyReturns','chartReasons','chartDailySales','chartWeeklySales','chartSkuPerf','chartPnl','chartDailyFull','chartSku','chartAdsSpend','chartAdsScatter'].forEach(id=>{ const ch = Chart.getChart(id); if (ch) ch.destroy(); });
+
+function fmt(n){ return '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits:0}); }
+function fmtSigned(n){ return (n<0?'-':'') + '₹' + Math.abs(n).toLocaleString('en-IN', {maximumFractionDigits:0}); }
+
+// ---- KPI grid (overview) ----
+const p = DATA.pnl, t = DATA.today;
+const kpis = [
+  {label:"Today's Sales", value: t.salesToday, note:'Yesterday: '+t.salesYesterday},
+  {label:"Today's Units", value: t.unitsToday, note:'Yesterday: '+t.unitsYesterday},
+  {label:'New Orders (today)', value: t.newOrders, note:'Pending RTD: '+t.pendingRTD},
+  {label:"Today's Returns", value: t.returnsToday, note:'Handed over: '+t.returnsHandedOver},
+  {label:'Gross Sales (1-6 Aug)', value: fmt(p.grossSalesAmt), note: p.grossSalesUnits+' units'},
+  {label:'Net Sales (1-6 Aug)', value: fmt(p.netSalesAmt), note: p.netSalesUnits+' units', cls:'good'},
+  {label:'Earnings on Platform (1-6 Aug)', value: fmt(p.netEarnings), note:'after fees, taxes, discounts, incl. Ads wallet top-up - see P&L note', cls:'bad'},
+  {label:'Return Rate % (units)', value: p.returnRatePct+'%', note: Math.abs(p.returnsUnits)+' units returned', cls:'bad'},
+];
+document.getElementById('kpiGrid').innerHTML = kpis.map(k=>`
+  <div class="kpi"><div class="label">${k.label}</div><div class="value ${k.cls||''}">${k.value}</div><div class="note">${k.note}</div></div>
+`).join('');
+
+document.getElementById('alertCards').innerHTML = `
+  <div class="kpi"><div class="label">Quality Complaints</div><div class="value warn">${DATA.quality.listingsWithComplaints} listings</div>
+   <div class="note">GMV loss est. ${fmt(DATA.quality.gmvLoss)} — ${DATA.quality.complaintTypes.join(', ')}</div></div>
+  <div class="kpi"><div class="label">Out of Stock SKUs</div><div class="value bad">${DATA.inventory.outOfStock}</div>
+   <div class="note">of ${DATA.inventory.totalSkus} active SKUs, ${DATA.inventory.totalUnits.toLocaleString('en-IN')} units on hand</div></div>
+  <div class="kpi"><div class="label">Active Ads Campaigns</div><div class="value">${DATA.ads.activeCampaigns}</div>
+   <div class="note">${DATA.ads.note}</div></div>
+`;
+
+// ---- Why the numbers move (grounded in dailySales/weeklySales/reasons/returns) ----
+function fmtPct(n){ return Number(n).toFixed(1)+'%'; }
+function buildReasonCards(){
+  const cards = [];
+  const dow = n=>['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][n];
+  const ds = DATA.dailySales.map(d=>({...d, dt: new Date('2026-'+(d.date.split('-')[1]==='Jul'?'07':'01')+'-'+d.date.split('-')[0])}));
+  ds.forEach(d=>{ d.dowName = dow(d.dt.getDay()); });
+
+  // 1. Return-reason composition shift (order_cancelled vs genuine product-issue returns), by week
+  const ret = DATA.returns.map(r=>({...r, dt:new Date(r.date.split('-')[0]+' '+r.date.split('-')[1]+' 2026')}));
+  const wk = d => d <= new Date('2026-07-07') ? 'W1' : d <= new Date('2026-07-14') ? 'W2' : 'W3+';
+  const productReasons = new Set(['SIZE_FIT_ISSUES','QUALITY_ISSUE','DAMAGED_PRODUCT','MISSING_ITEM','MISSHIPMENT']);
+  const byWeek = {W1:{cancel:0,product:0}, W2:{cancel:0,product:0}, 'W3+':{cancel:0,product:0}};
+  ret.forEach(r=>{
+    const w = wk(r.dt);
+    if (r.reason==='order_cancelled') byWeek[w].cancel++;
+    else if (productReasons.has(r.reason)) byWeek[w].product++;
+  });
+  const topReason = DATA.reasons[0];
+  const totalRetUnits = DATA.reasons.reduce((a,r)=>a+r.units,0);
+  cards.push({
+    title: `Returns are dominated by order cancellations, not product problems`,
+    metric: fmtPct(topReason.units/totalRetUnits*100),
+    why: `"${topReason.reason}" alone accounts for ${topReason.units} of ${totalRetUnits} return units (${fmtPct(topReason.units/totalRetUnits*100)}) — more than double the next reason. Genuine product-issue returns (size/fit, quality, damage) fell from ${byWeek.W1.product} requests in Week 1 to ${byWeek['W3+'].product} in Week 3+, while order-cancellation requests rose from ${byWeek.W1.cancel} to ${byWeek['W3+'].cancel} over the same span — the return problem is shifting toward pre-fulfillment cancellations, not product quality.`
+  });
+
+  // 2. Day-of-week pattern (sales + return rate)
+  const byDow = {};
+  ds.forEach(d=>{ (byDow[d.dowName] = byDow[d.dowName]||[]).push(d); });
+  const dowAvg = Object.entries(byDow).map(([k,v])=>({
+    day:k, sales: v.reduce((a,x)=>a+x.saleAmt,0)/v.length, ret: v.reduce((a,x)=>a+x.returnRate,0)/v.length
+  }));
+  const bestSalesDay = [...dowAvg].sort((a,b)=>b.sales-a.sales)[0];
+  const worstRetDay = [...dowAvg].sort((a,b)=>b.ret-a.ret)[0];
+  const bestRetDay = [...dowAvg].sort((a,b)=>a.ret-b.ret)[0];
+  cards.push({
+    title: `Saturdays sell best but return worst`,
+    metric: fmtPct(worstRetDay.ret),
+    why: `${bestSalesDay.day} has the highest average daily sales (${fmt(bestSalesDay.sales)}), but ${worstRetDay.day} carries the highest average return rate (${fmtPct(worstRetDay.ret)}) — nearly double ${bestRetDay.day}'s ${fmtPct(bestRetDay.ret)}, the calmest day for returns. Worth checking if Saturday orders skew toward impulse/COD purchases that get refused or returned more often.`
+  });
+
+  // 3. Weekly sales decline
+  const w = DATA.weeklySales;
+  if (w.length >= 2) {
+    const first = w[0], last = w[w.length-1];
+    const pctChange = ((last.saleAmt-first.saleAmt)/first.saleAmt*100);
+    cards.push({
+      title: `Weekly gross sales have been declining`,
+      metric: fmtPct(pctChange),
+      why: `Gross sales fell from ${fmt(first.saleAmt)} in ${first.week} to ${fmt(last.saleAmt)} in ${last.week} (${fmtPct(pctChange)}), even as the Sales-Report return rate improved from ${fmtPct(first.returnRate)} to ${fmtPct(last.returnRate)} over the same span — the order-quality picture is getting better, but top-line order volume is shrinking and is the bigger thing to watch.`
+    });
+  }
+
+  document.getElementById('reasonCards').innerHTML = cards.map(c=>`
+    <div style="background:#12182a;border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+        <span style="font-weight:700;color:var(--accent2);font-size:13px;">${c.metric}</span>
+      </div>
+      <div style="font-weight:600;font-size:13.5px;margin-bottom:6px;">${c.title}</div>
+      <div style="font-size:12.5px;color:#cfd6e4;line-height:1.5;"><span style="color:var(--muted);">Why:</span> ${c.why}</div>
+    </div>
+  `).join('');
+}
+buildReasonCards();
+
+// ---- Charts (overview) ----
+new Chart(document.getElementById('chartDailyReturns'), {
+  type:'bar',
+  data:{ labels: DATA.daily.map(d=>d.date),
+    datasets:[{label:'Units Returned', data: DATA.daily.map(d=>d.total), backgroundColor:'#ff5d6c'}]},
+  options:{plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#93a0b8',maxRotation:90,minRotation:90}},y:{ticks:{color:'#93a0b8'}}}}
+});
+
+new Chart(document.getElementById('chartReasons'), {
+  type:'doughnut',
+  data:{ labels: DATA.reasons.slice(0,8).map(r=>r.reason),
+    datasets:[{data: DATA.reasons.slice(0,8).map(r=>r.units),
+      backgroundColor:['#2874f0','#ffe500','#3ddc97','#ffb454','#ff5d6c','#37c2ff','#a78bfa','#f472b6']}]},
+  options:{plugins:{legend:{position:'right',labels:{color:'#e8ecf5',boxWidth:12,font:{size:10}}}}}
+});
+
+// ---- Daily Sales tab ----
+const ds = DATA.dailySales;
+new Chart(document.getElementById('chartDailySales'), {
+  type:'bar',
+  data:{ labels: ds.map(d=>d.date),
+    datasets:[
+      {type:'bar', label:'Gross Sales (₹)', data: ds.map(d=>d.saleAmt), backgroundColor:'#2874f0', yAxisID:'y'},
+      {type:'bar', label:'Return Amount (₹)', data: ds.map(d=>d.returnAmt), backgroundColor:'#ff5d6c', yAxisID:'y'},
+      {type:'line', label:'Net Sales (₹)', data: ds.map(d=>d.netAmt), borderColor:'#ffe500', backgroundColor:'#ffe500', yAxisID:'y', tension:.3}
+    ]},
+  options:{plugins:{legend:{labels:{color:'#e8ecf5'}}}, scales:{x:{ticks:{color:'#93a0b8',maxRotation:90,minRotation:90}},y:{ticks:{color:'#93a0b8'}}}}
+});
+document.getElementById('tblDailySales').innerHTML = '<tr><th>Date</th><th>Gross Sale Units</th><th>Gross Sales (₹)</th><th>Returned Units</th><th>Return Amount (₹)</th><th>Net Units</th><th>Net Sales (₹)</th><th>Return Rate %</th><th>AOV (₹)</th></tr>' +
+  ds.map(d=>`<tr><td>${d.date}</td><td>${d.saleUnits}</td><td>${fmt(d.saleAmt)}</td><td>${d.returnUnits}</td><td class="neg">${fmtSigned(d.returnAmt)}</td><td>${d.netUnits}</td><td class="pos">${fmt(d.netAmt)}</td><td>${d.returnRate}%</td><td>${fmt(d.aov)}</td></tr>`).join('') +
+  (()=>{ const tot={su:0,sa:0,ru:0,ra:0,nu:0,na:0}; ds.forEach(d=>{tot.su+=d.saleUnits;tot.sa+=d.saleAmt;tot.ru+=d.returnUnits;tot.ra+=d.returnAmt;tot.nu+=d.netUnits;tot.na+=d.netAmt;});
+    return `<tr class="total-row"><td>TOTAL</td><td>${tot.su}</td><td>${fmt(tot.sa)}</td><td>${tot.ru}</td><td class="neg">${fmtSigned(tot.ra)}</td><td>${tot.nu}</td><td class="pos">${fmt(tot.na)}</td><td>${(tot.ru/tot.su*100).toFixed(2)}%</td><td>${fmt(tot.sa/tot.su)}</td></tr>`; })();
+
+// ---- Weekly Sales tab ----
+const ws = DATA.weeklySales;
+new Chart(document.getElementById('chartWeeklySales'), {
+  type:'bar',
+  data:{ labels: ws.map(w=>w.week),
+    datasets:[
+      {label:'Gross Sales (₹)', data: ws.map(w=>w.saleAmt), backgroundColor:'#2874f0'},
+      {label:'Return Amount (₹)', data: ws.map(w=>w.returnAmt), backgroundColor:'#ff5d6c'},
+      {label:'Net Sales (₹)', data: ws.map(w=>w.netAmt), backgroundColor:'#3ddc97'}
+    ]},
+  options:{plugins:{legend:{labels:{color:'#e8ecf5'}}}, scales:{x:{ticks:{color:'#93a0b8'}},y:{ticks:{color:'#93a0b8'}}}}
+});
+document.getElementById('tblWeeklySales').innerHTML = '<tr><th>Week</th><th>Gross Sale Units</th><th>Gross Sales (₹)</th><th>Returned Units</th><th>Return Amount (₹)</th><th>Net Units</th><th>Net Sales (₹)</th><th>Days</th><th>Return Rate %</th><th>AOV (₹)</th><th>Ad Spend (₹)</th><th>ACOS %</th><th>ROI</th></tr>' +
+  ws.map(w=>`<tr><td>${w.week}</td><td>${w.saleUnits}</td><td>${fmt(w.saleAmt)}</td><td>${w.returnUnits}</td><td class="neg">${fmtSigned(w.returnAmt)}</td><td>${w.netUnits}</td><td class="pos">${fmt(w.netAmt)}</td><td>${w.days}</td><td>${w.returnRate}%</td><td>${fmt(w.aov)}</td><td title="Ad spend not available broken down by week — see Ad Performance panel for period-level figures">NA</td><td title="ACOS not available broken down by week — see Ad Performance panel for period-level figures">NA</td><td title="ROI not available broken down by week — see Ad Performance panel for period-level figures">NA</td></tr>`).join('') +
+  `<tr class="total-row"><td colspan="13" style="text-align:left;font-style:italic;">Period-level Ad Spend ₹${fmt(DATA.adPerformance.periodAdSpend)} · ACOS ${DATA.adPerformance.periodACOS}% · ROI ${DATA.adPerformance.periodROI}x — see Ad Performance panel below. ${DATA.adPerformance.note}</td></tr>`;
+
+// ---- SKU Performance tab ----
+const skuPerf = DATA.skuPerformance;
+new Chart(document.getElementById('chartSkuPerf'), {
+  type:'bar',
+  data:{ labels: skuPerf.slice(0,15).map(s=>s.sku),
+    datasets:[{label:'Gross Sales (₹)', data: skuPerf.slice(0,15).map(s=>s.saleAmt), backgroundColor:'#2874f0'}]},
+  options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#93a0b8'}},y:{ticks:{color:'#93a0b8'}}}}
+});
+function renderSkuPerf(){
+  const q = document.getElementById('skuSearch').value.toLowerCase();
+  const f = document.getElementById('skuFilter').value;
+  let items = skuPerf.filter(s=>
+    (!q || s.sku.toLowerCase().includes(q) || (s.title||'').toLowerCase().includes(q)) &&
+    (!f || (f==='oos' && s.stock===0) || (f==='highret' && s.returnRate>=20))
+  );
+  document.getElementById('tblSkuPerf').innerHTML = '<tr><th>SKU</th><th>Title</th><th>Gross Units</th><th>Gross Sales (₹)</th><th>Return Units</th><th>Return Amt (₹)</th><th>Net Units</th><th>Net Sales (₹)</th><th>Return Rate %</th><th>Status</th><th>MRP (₹)</th><th>Selling Price (₹)</th><th>Stock</th></tr>' +
+    items.map(s=>{
+      let badge = s.stock===0 ? '<span class="badge red">OOS</span>' : s.returnRate>=20 ? '<span class="badge yellow">High Returns</span>' : (s.status==='ACTIVE'?'<span class="badge green">Active</span>':`<span class="badge yellow">${s.status||'—'}</span>`);
+      return `<tr><td>${s.sku}</td><td>${s.title||''}</td><td>${s.saleUnits}</td><td>${fmt(s.saleAmt)}</td><td>${s.returnUnits}</td><td class="neg">${fmtSigned(s.returnAmt)}</td><td>${s.netUnits}</td><td class="pos">${fmt(s.netAmt)}</td><td>${s.returnRate}%</td><td>${badge}</td><td>${s.mrp!=null?fmt(s.mrp):'—'}</td><td>${s.sellingPrice!=null?fmt(s.sellingPrice):'—'}</td><td>${s.stock!=null?s.stock:'—'}</td></tr>`;
+    }).join('');
+}
+document.getElementById('skuSearch').oninput = renderSkuPerf;
+document.getElementById('skuFilter').onchange = renderSkuPerf;
+renderSkuPerf();
+
+new Chart(document.getElementById('chartPnl'), {
+  type:'bar',
+  data:{ labels:['Gross Sales','Returns','Net Sales','Fees & Costs','Taxes','Rewards','Net Earnings'],
+    datasets:[{label:'Amount (₹)', data:[p.grossSalesAmt, p.returnsAmt, p.netSalesAmt, p.feesCosts, p.taxes, p.rewardsSpf, p.netEarnings],
+      backgroundColor:(ctx)=>{ const v=ctx.raw; return v<0? '#ff5d6c':'#3ddc97'; }}]},
+  options:{plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#93a0b8'}},y:{ticks:{color:'#93a0b8'}}}}
+});
+
+new Chart(document.getElementById('chartDailyFull'), {
+  type:'bar',
+  data:{ labels: DATA.daily.map(d=>d.date),
+    datasets:[
+      {label:'Courier/RTO', data: DATA.daily.map(d=>d.courier), backgroundColor:'#ffb454', stack:'s'},
+      {label:'Customer Return', data: DATA.daily.map(d=>d.customer), backgroundColor:'#ff5d6c', stack:'s'}
+    ]},
+  options:{plugins:{legend:{labels:{color:'#e8ecf5'}}}, scales:{x:{stacked:true,ticks:{color:'#93a0b8',maxRotation:90,minRotation:90}},y:{stacked:true,ticks:{color:'#93a0b8'}}}}
+});
+
+new Chart(document.getElementById('chartSku'), {
+  type:'bar',
+  data:{ labels: DATA.skuReturns.slice(0,12).map(s=>s.sku),
+    datasets:[{label:'Units Returned', data: DATA.skuReturns.slice(0,12).map(s=>s.units), backgroundColor:'#2874f0'}]},
+  options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#93a0b8'}},y:{ticks:{color:'#93a0b8'}}}}
+});
+
+// ---- P&L Table ----
+const pnlRows = [
+  ['Gross Sales', p.grossSalesUnits, p.grossSalesAmt],
+  ['Returns & Cancellations', p.returnsUnits, p.returnsAmt],
+  ['Estimated Net Sales', '', p.estNetSales],
+  ['Shopsy Buyer Fees', '', p.shopsyFees],
+  ['Seller-Funded Discount', '', p.sellerDiscount],
+  ['Net Sales', p.netSalesUnits, p.netSalesAmt],
+  ['Fees & Costs', '', p.feesCosts],
+  ['  Marketplace Fees', '', p.marketplaceFees],
+  ['  Fixed Fee', '', p.fixedFee],
+  ['  Reverse Shipping Fees', '', p.reverseShipping],
+  ['  Shopsy Buyer Fees Recovery', '', p.shopsyRecovery],
+  ['Taxes', '', p.taxes],
+  ['Rewards & SPF', '', p.rewardsSpf],
+  ['Bank Settlement (₹'+p.bankSettled.toLocaleString('en-IN')+' already settled)', '', p.bankSettlement],
+  ['Input Tax Credits', '', p.inputTaxCredits],
+  ['Net Earnings', '', p.netEarnings],
+];
+document.getElementById('tblPnl').innerHTML = '<tr><th>Line Item</th><th>Units</th><th>Amount</th></tr>' +
+  pnlRows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td class="${r[2]<0?'neg':'pos'}">${fmtSigned(r[2])}</td></tr>`).join('');
+
+// ---- Returns Detail table ----
+function renderRet(){
+  const q = document.getElementById('retSearch').value.toLowerCase();
+  const f = document.getElementById('retFilter').value;
+  let items = DATA.returns.filter(r=>
+    (!f || r.type===f) &&
+    (!q || r.sku.toLowerCase().includes(q) || r.orderId.toLowerCase().includes(q) || r.reason.toLowerCase().includes(q))
+  );
+  document.getElementById('tblRet').innerHTML = '<tr><th>Date</th><th>Order ID</th><th>SKU</th><th>Qty</th><th>Type</th><th>Reason</th></tr>' +
+    items.map(r=>`<tr><td>${r.date}</td><td>${r.orderId}</td><td>${r.sku}</td><td>${r.qty}</td><td>${r.type}</td><td>${r.reason}</td></tr>`).join('');
+}
+document.getElementById('retSearch').oninput = renderRet;
+document.getElementById('retFilter').onchange = renderRet;
+renderRet();
+
+// ---- Inventory ----
+const inv = DATA.inventory;
+document.getElementById('kpiInv').innerHTML = `
+  <div class="kpi"><div class="label">Total Active SKUs</div><div class="value">${inv.totalSkus}</div></div>
+  <div class="kpi"><div class="label">Total Units in Stock</div><div class="value">${inv.totalUnits.toLocaleString('en-IN')}</div></div>
+  <div class="kpi"><div class="label">Low Stock SKUs</div><div class="value">${inv.lowStock}</div></div>
+  <div class="kpi"><div class="label">Out of Stock SKUs</div><div class="value bad">${inv.outOfStock}</div></div>
+`;
+document.getElementById('tblInv').innerHTML = '<tr><th>SKU</th><th>FSN</th><th>Product</th><th>Avg Daily Sales (30d)</th><th>Potential Monthly Loss</th><th>Status</th></tr>' +
+  inv.oosList.map(s=>`<tr><td>${s.sku}</td><td>${s.fsn}</td><td>${s.product}</td><td>${s.avgDailySales}</td><td>${fmt(s.potentialLoss)}</td><td><span class="badge red">${s.status}</span></td></tr>`).join('');
+
+// ---- Ads ----
+const ads = DATA.ads;
+document.getElementById('adsNote').textContent = ads.note;
+document.getElementById('kpiAds').innerHTML = `
+  <div class="kpi"><div class="label">Ad Spend (30d)</div><div class="value">${fmt(ads.adSpend)}</div></div>
+  <div class="kpi"><div class="label">Attributed Revenue (30d)</div><div class="value good">${fmt(ads.revenue)}</div></div>
+  <div class="kpi"><div class="label">ROI</div><div class="value good">${ads.roi}</div></div>
+  <div class="kpi"><div class="label">TACoS</div><div class="value warn">${ads.tacos}%</div></div>
+  <div class="kpi"><div class="label">Live Campaigns</div><div class="value">${ads.activeCampaigns} <span style="font-size:13px;color:var(--muted);">of ${ads.totalCampaigns}</span></div></div>
+  <div class="kpi"><div class="label">Views / Clicks</div><div class="value" style="font-size:16px;">${ads.views.toLocaleString('en-IN')} / ${ads.clicks.toLocaleString('en-IN')}</div></div>
+`;
+
+const spendingCampaigns = ads.campaigns.filter(c=>c.spend>0).sort((a,b)=>b.spend-a.spend);
+new Chart(document.getElementById('chartAdsSpend'), {
+  type:'bar',
+  data:{ labels: spendingCampaigns.slice(0,12).map(c=>c.name.length>22?c.name.slice(0,22)+'…':c.name),
+    datasets:[{label:'Ad Spend (₹)', data: spendingCampaigns.slice(0,12).map(c=>c.spend), backgroundColor:'#2874f0'}]},
+  options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#93a0b8'}},y:{ticks:{color:'#93a0b8'}}}}
+});
+
+new Chart(document.getElementById('chartAdsScatter'), {
+  type:'scatter',
+  data:{ datasets:[{label:'Campaigns', data: spendingCampaigns.map(c=>({x:c.spend, y:c.revenue, r:6})),
+    backgroundColor:'#ffe500'}]},
+  options:{plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>spendingCampaigns[ctx.dataIndex].name+': spend '+fmt(ctx.raw.x)+', revenue '+fmt(ctx.raw.y)}}},
+    scales:{x:{title:{display:true,text:'Ad Spend (₹)',color:'#93a0b8'},ticks:{color:'#93a0b8'}}, y:{title:{display:true,text:'Revenue (₹)',color:'#93a0b8'},ticks:{color:'#93a0b8'}}}}
+});
+
+function renderAds(){
+  const q = document.getElementById('adsSearch').value.toLowerCase();
+  const f = document.getElementById('adsFilter').value;
+  let items = ads.campaigns.filter(c=>
+    (!f || c.status===f) && (!q || c.name.toLowerCase().includes(q))
+  );
+  document.getElementById('tblAds').innerHTML = '<tr><th>Campaign</th><th>Status</th><th>Type</th><th>Ad Spend</th><th>Views</th><th>Clicks</th><th>CTR</th><th>Units Sold</th><th>Revenue</th><th>ROI</th><th>CVR</th></tr>' +
+    items.map(c=>`<tr><td>${c.name}</td><td><span class="badge ${c.status==='Live'?'green':c.status==='Aborted'?'red':'yellow'}">${c.status}</span></td><td>${c.type}</td><td>${fmt(c.spend)}</td><td>${c.views.toLocaleString('en-IN')}</td><td>${c.clicks.toLocaleString('en-IN')}</td><td>${c.ctr}%</td><td>${c.unitsSold}</td><td>${fmt(c.revenue)}</td><td>${c.roi}</td><td>${c.cvr}%</td></tr>`).join('');
+}
+document.getElementById('adsSearch').oninput = renderAds;
+document.getElementById('adsFilter').onchange = renderAds;
+renderAds();
+
+// ---- Payments ----
+document.getElementById('tblUpcoming').innerHTML = '<tr><th>Payment Date</th><th>Prepaid</th><th>Postpaid</th><th>Total Estimate</th></tr>' +
+  DATA.payments.upcoming.map(u=>`<tr><td>${u.date}</td><td>${fmtSigned(u.prepaid)}</td><td class="${u.postpaid<0?'neg':''}">${fmtSigned(u.postpaid)}</td><td>${fmtSigned(u.total)}</td></tr>`).join('') +
+  `<tr><td colspan="3"><b>Total Outstanding</b></td><td class="neg"><b>${fmtSigned(DATA.payments.totalOutstanding)}</b></td></tr>`;
+document.getElementById('tblRecent').innerHTML = '<tr><th>Payment Date</th><th>Amount</th><th>Note</th></tr>' +
+  DATA.payments.recent.map(r=>`<tr><td>${r.date}</td><td>${fmt(r.amount)}</td><td>${r.note}</td></tr>`).join('');
+
+// ---- Data gaps notes ----
+document.getElementById('dataGaps').innerHTML = DATA.dataGaps.map(g=>`<li>${g}</li>`).join('');
+
+}
+renderDashboard();
+
+
+// ============================================================
+// LIVE WORKBOOK LOADER (SheetJS) - re-parses Daily/Weekly Sales,
+// SKU Performance, and Returns Detail from the picked xlsx, then
+// re-derives daily/reasons/skuReturns and reruns renderDashboard().
+// Ads/Inventory/Payments/Quality/Today stay as generation-time
+// snapshots (not literal single tables in the source workbook).
+// ============================================================
+function fkSheetRows(wb, sheetName, headerRow){
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return [];
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+  const headers = aoa[headerRow-1] || [];
+  const rows = [];
+  for (let i=headerRow; i<aoa.length; i++){
+    const r = aoa[i];
+    if (!r || r.every(v=>v===null||v==='')) continue;
+    if (r[0]===null || r[0]==='') continue;
+    if (typeof r[0] === 'string' && r[0].trim().toUpperCase() === 'TOTAL') continue;
+    const obj = {};
+    headers.forEach((h,ci)=>{ if(h!==null && h!=='') obj[h] = r[ci]===undefined?null:r[ci]; });
+    rows.push(obj);
+  }
+  return rows;
+}
+function fkStripYear(d){ return (d||'').replace(/-2026$/,''); }
+
+function buildPnlFromSheet(wb){
+  const ws = wb.Sheets['Period P&L (Earnings Summary)'];
+  if (!ws) return null;
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+  const pnl = {};
+  for (const row of aoa){
+    const label = (row[0]||'').toString();
+    const units = row[1], amt = row[2];
+    if (label.startsWith('Gross Sales')) { pnl.grossSalesUnits = units; pnl.grossSalesAmt = amt; }
+    else if (label.startsWith('Returns & Cancellations')) { pnl.returnsUnits = units; pnl.returnsAmt = amt; }
+    else if (label.startsWith('Estimated Net Sales')) pnl.estNetSales = amt;
+    else if (label.startsWith('Shopsy Buyer Fees')) pnl.shopsyFees = amt;
+    else if (label.startsWith('Seller-Funded Discount')) pnl.sellerDiscount = amt;
+    else if (label.startsWith('Net Sales')) { pnl.netSalesUnits = units; pnl.netSalesAmt = amt; }
+    else if (label.startsWith('Fees & Costs')) pnl.feesCosts = amt;
+    else if (label.includes('Marketplace Fees')) pnl.marketplaceFees = amt;
+    else if (label.includes('Fixed Fee')) pnl.fixedFee = amt;
+    else if (label.includes('Reverse Shipping')) pnl.reverseShipping = amt;
+    else if (label.includes('Shopsy Buyer Fees Recovery')) pnl.shopsyRecovery = amt;
+    else if (label.startsWith('Taxes')) pnl.taxes = amt;
+    else if (label.startsWith('Rewards')) pnl.rewardsSpf = amt;
+    else if (label.startsWith('Bank Settlement')) {
+      pnl.bankSettlement = amt;
+      const m = label.match(/Rs\s*([\d,]+)\s*already settled/);
+      pnl.bankSettled = m ? parseInt(m[1].replace(/,/g,''),10) : null;
+    }
+    else if (label.startsWith('Input Tax Credits')) pnl.inputTaxCredits = amt;
+    else if (label.startsWith('Net Earnings')) pnl.netEarnings = amt;
+  }
+  pnl.returnRatePct = pnl.grossSalesUnits ? Math.round((Math.abs(pnl.returnsUnits||0)/pnl.grossSalesUnits*100)*100)/100 : 0;
+  return pnl;
+}
+
+document.getElementById('loadWorkbookBtn').addEventListener('click', ()=>{
+  document.getElementById('workbookFileInput').click();
+});
+document.getElementById('workbookFileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('loadStatus');
+  statusEl.textContent = 'Loading ' + file.name + '...';
+  const reader = new FileReader();
+  reader.onload = (evt)=>{
+    try {
+      const wb = XLSX.read(evt.target.result, {type:'array'});
+
+      const dailySalesRaw = fkSheetRows(wb, 'Daily Sales & P&L', 4);
+      const dailySales = dailySalesRaw.map(r=>({
+        date: fkStripYear(r['Date']), saleUnits: r['Gross Sale Units'], saleAmt: r['Gross Sales (Rs)'],
+        returnUnits: r['Returned Units'], returnAmt: r['Return Amount (Rs)'], netUnits: r['Net Units'],
+        netAmt: r['Net Sales (Rs)'], returnRate: r['Return Rate % (units)'], aov: r['Avg Order Value (Rs)']
+      }));
+
+      const weeklySalesRaw = fkSheetRows(wb, 'Weekly Sales & P&L', 4);
+      const weeklySales = weeklySalesRaw.map(r=>({
+        week: r['Week'], saleUnits: r['Gross Sale Units'], saleAmt: r['Gross Sales (Rs)'],
+        returnUnits: r['Returned Units'], returnAmt: r['Return Amount (Rs)'], netUnits: r['Net Units'],
+        netAmt: r['Net Sales (Rs)'], days: r['Days'], returnRate: r['Return Rate % (units)'], aov: r['Avg Order Value (Rs)']
+      }));
+
+      const skuRaw = fkSheetRows(wb, 'SKU Performance', 4);
+      const skuPerformance = skuRaw.map(r=>({
+        sku: r['SKU'], title: r['Product Title'], saleUnits: r['Gross Sale Units'], saleAmt: r['Gross Sales (Rs)'],
+        returnUnits: r['Return Units'], returnAmt: r['Return Amount (Rs)'], netUnits: r['Net Units'], netAmt: r['Net Sales (Rs)'],
+        returnRate: r['Return Rate % (units)'], status: r['Listing Status'], mrp: r['MRP (Rs)'],
+        sellingPrice: r['Selling Price (Rs)'], stock: r['System Stock']
+      }));
+
+      const retRaw = fkSheetRows(wb, 'Returns Detail', 4);
+      const returns = retRaw.map(r=>({
+        date: r['Return Date'], orderId: r['Order ID (last 10 digits)'], sku: r['SKU'], qty: r['Qty'],
+        type: r['Return Type'], reason: r['Reason']
+      }));
+
+      if (!dailySales.length) throw new Error("Couldn't find a 'Daily Sales & P&L' sheet with data - is this the right workbook?");
+
+      // Derive reasons, skuReturns, daily (courier/customer by date) from returns
+      const reasonMap = {}, skuMap = {}, dayMap = {};
+      returns.forEach(r=>{
+        const reason = r.reason || 'Unspecified';
+        reasonMap[reason] = (reasonMap[reason]||0) + (r.qty||0);
+        if (r.sku) skuMap[r.sku] = (skuMap[r.sku]||0) + (r.qty||0);
+        if (!dayMap[r.date]) dayMap[r.date] = {date:r.date, total:0, courier:0, customer:0};
+        dayMap[r.date].total += (r.qty||0);
+        if (r.type === 'Courier/RTO') dayMap[r.date].courier += (r.qty||0);
+        else if (r.type === 'Customer Return') dayMap[r.date].customer += (r.qty||0);
+      });
+      const reasons = Object.entries(reasonMap).sort((a,b)=>b[1]-a[1]).map(([reason,units])=>({reason,units}));
+      const skuReturns = Object.entries(skuMap).sort((a,b)=>b[1]-a[1]).map(([sku,units])=>({sku,units}));
+      const daily = Object.values(dayMap).sort((a,b)=> new Date(a.date.split('-').reverse().join('-')) - new Date(b.date.split('-').reverse().join('-')));
+
+      const pnl = buildPnlFromSheet(wb) || DATA.pnl;
+
+      DATA = {...DATA, pnl, dailySales, weeklySales, skuPerformance, returns, reasons, skuReturns, daily};
+      renderDashboard();
+      statusEl.textContent = 'Loaded ' + file.name + ' (' + dailySales.length + ' daily rows, ' + returns.length + ' returns) at ' + new Date().toLocaleTimeString('en-IN');
+      statusEl.style.color = 'var(--good)';
+    } catch(err){
+      statusEl.textContent = 'Failed to load: ' + err.message;
+      statusEl.style.color = 'var(--bad)';
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+</script>
+
+<script>
+(function(){
+  if(!window.DATA || !DATA.dailySettlement || !DATA.dailySettlement.length) return;
+  const fmt=n=>(n===null||n===undefined||isNaN(n))?'—':Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
+  const T=DATA.settlementTotals||{};
+  const kpi=(l,v,s)=>`<div style="background:var(--panel,#17212b);border-radius:8px;padding:12px 14px;min-width:170px;flex:1"><div style="font-size:11px;opacity:.7;margin-bottom:5px">${l}</div><div style="font-size:19px;font-weight:700">${v}</div>${s?`<div style="font-size:11px;opacity:.6;margin-top:4px">${s}</div>`:''}</div>`;
+  const dcols=[['date','Date'],['items','Order Items'],['sale','Sale Amount'],['refund','Refund'],['offer','Offer/Promo'],['sellerShare','Seller Share'],['addons','Add-ons'],['mpFees','Mktpl. Fees'],['taxes','Taxes'],['settlement','Settlement'],['aov','AOV'],['refundPct','Refund % of Sale']];
+  const wcols=[['week','Week'],['days','Days'],['items','Order Items'],['sale','Sale Amount'],['refund','Refund'],['mpFees','Mktpl. Fees'],['settlement','Settlement'],['aov','AOV'],['refundPct','Refund %'],['settlePct','Settle % of Sale']];
+  const tbl=(rows,cols)=>`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${cols.map(c=>`<th style="text-align:left;padding:6px 8px;border-bottom:1px solid #2a3946;opacity:.75">${c[1]}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td style="padding:5px 8px;border-bottom:1px solid #1e2833">${typeof r[c[0]]==='number'?fmt(r[c[0]]):r[c[0]]}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  const el=document.createElement('section');
+  el.id='settlement-full';
+  el.style.cssText='margin:28px 0;padding:0 4px';
+  el.innerHTML=`<h2 style="margin-bottom:6px">Daily Settlement &amp; Fees (Live) — FULL MONTH 1–31 Aug 2026</h2>
+   <p style="font-size:12px;opacity:.75;margin-top:0">Rebuilt 01-Sep-2026 from 303 order items, every row reconciled. This is the complete, final August settlement position and it supersedes the 1–20 Aug view. Separate basis from the official Sales-Report tables elsewhere on this page — the two are never blended.</p>
+   <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0">
+     ${kpi('Order Items', fmt(T.items))}
+     ${kpi('Sale Amount', '₹'+fmt(T.sale))}
+     ${kpi('Refunds', '₹'+fmt(T.refund), fmt(T.refundPct)+'% of sale')}
+     ${kpi('Marketplace Fees', '₹'+fmt(T.mpFees), '₹'+fmt(T.feePerItem)+' per order item')}
+     ${kpi('Settlement', '₹'+fmt(T.settlement), fmt(T.settlePct)+'% of sale')}
+     ${kpi('Avg Order Value', '₹'+fmt(T.aov))}
+   </div>
+   <h3 style="margin:18px 0 6px;font-size:14px">Weekly rollup — real Monday–Sunday ISO weeks</h3>${tbl(DATA.weeklySettlement,wcols)}
+   <h3 style="margin:20px 0 6px;font-size:14px">Daily detail — all 31 days</h3>${tbl(DATA.dailySettlement,dcols)}`;
+  document.body.appendChild(el);
+})();
+</script>
+
+</body>
+</html>

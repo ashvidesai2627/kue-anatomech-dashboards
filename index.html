@@ -7,53 +7,66 @@
 <style>
 body { background:#0f1720; color:#e6edf3; font-family:Arial, Helvetica, sans-serif; margin:0; padding:32px; }
 h1 { font-size:24px; margin-bottom:4px; }
-.sub { color:#8b98a5; margin-bottom:28px; font-size:13px; }
+.sub { color:#8b98a5; margin-bottom:28px; font-size:13px; line-height:1.6; max-width:1000px; }
 .platform { background:#17212b; border-radius:10px; padding:18px 22px; margin-bottom:18px; }
 .platform h2 { margin:0 0 10px 0; font-size:18px; color:#4f9dff; }
 .links a { display:inline-block; margin:4px 10px 4px 0; padding:6px 12px; background:#1c2732; border-radius:6px; color:#e6edf3; text-decoration:none; font-size:13px; }
 .links a.latest { background:#1f6f43; font-weight:bold; }
 .links a:hover { background:#2a3946; }
+.note { color:#8b98a5; font-size:12px; margin-top:8px; line-height:1.55; }
+.warn { color:#e3b341; }
+.bad { color:#f85149; }
 </style>
 </head>
 <body>
 <h1>KUE / Anatomech — Sales Dashboards</h1>
-<div class="sub">Updated 04-Aug-2026. Each platform: current month (Latest), frozen July 2026 archive, and Jul-Dec 2026 annual rollup.</div>
+<div class="sub">Updated 01-Sep-2026 (month-rollover run). Each platform has the current month marked <b>Latest</b>, every frozen past-month archive, and the Jul–Dec 2026 annual rollup. Frozen months are permanent and are never edited again. <b>All four platforms closed August 2026 complete</b> — Amazon and Flipkart were rebuilt in full from their live ledgers, Shopify cross-checked three ways, and Myntra rebuilt from the Partner Portal's Payment Details service.</div>
 
 <div class="platform">
 <h2>Amazon.in</h2>
 <div class="links">
-<a class="latest" href="amazon-aug2026.html">August 2026 (Latest)</a>
+<a class="latest" href="amazon-sep2026.html">September 2026 (Latest)</a>
+<a href="amazon-aug2026.html">August 2026 (frozen archive)</a>
 <a href="amazon-jul2026.html">July 2026 (frozen archive)</a>
 <a href="amazon-annual2026.html">Annual Rollup 2026</a>
 </div>
+<div class="note">August closed at 648 orders, ₹366,748.99 gross and ₹129,354.27 net payout across all 31 days. <span class="warn">It was rebuilt in full on 01-Sep-2026</span> after the previously published 1–20 Aug figures were found to be roughly double reality; anything quoted from this page between 03-Aug and 21-Aug-2026 should be restated. A single unreversed ₹38,673.70 fee adjustment on 10-Aug cost the month 29.9% of its realised payout.</div>
 </div>
 
 <div class="platform">
 <h2>Flipkart</h2>
 <div class="links">
-<a class="latest" href="flipkart-aug2026.html">August 2026 (Latest)</a>
+<a class="latest" href="flipkart-sep2026.html">September 2026 (Latest)</a>
+<a href="flipkart-aug2026.html">August 2026 (frozen archive)</a>
 <a href="flipkart-jul2026.html">July 2026 (frozen archive)</a>
 <a href="flipkart-annual2026.html">Annual Rollup 2026</a>
 </div>
+<div class="note">August closed COMPLETE on the live-settlement basis: 303 order items, ₹108,438.11 sale value, ₹78,760.09 settled, ₹357.88 AOV. <span class="warn">Every day of 1–20 Aug was previously understated</span> — refunds keep landing for well over a fortnight, far longer than Flipkart's stated two days. Refunds took 25.47% of sale value; marketplace fees took only 4.0%. The official Sales-Report basis is still capped at 1–8 Aug pending a manual export.</div>
 </div>
 
 <div class="platform">
 <h2>Myntra</h2>
 <div class="links">
-<a class="latest" href="myntra-aug2026.html">August 2026 (Latest)</a>
+<a class="latest" href="myntra-sep2026.html">September 2026 (Latest)</a>
+<a href="myntra-aug2026.html">August 2026 (frozen archive)</a>
 <a href="myntra-jul2026.html">July 2026 (frozen archive)</a>
 <a href="myntra-annual2026.html">Annual Rollup 2026</a>
 </div>
+<div class="note">August closed COMPLETE at 7 order lines (6 delivered, 1 cancelled, 1 returned), ₹8,936 Seller Product Amount and <b>₹0 actually settled</b>. <span class="bad">Highest-priority item across all four platforms:</span> the &ldquo;Seller is disabled&rdquo; settlement block is <b>₹14,017.47 across 19 payment rows and 15 order lines</b>, running back to an order line due 29-Mar-2026 — four times what earlier runs recorded, because only July had ever been queried. No payment has been received since 15-Apr-2026 and the next scheduled payment, on 02-Sep-2026, is negative at −₹6,779.77.</div>
 </div>
 
 <div class="platform">
 <h2>Shopify</h2>
 <div class="links">
-<a class="latest" href="shopify-aug2026.html">August 2026 (Latest)</a>
+<a class="latest" href="shopify-sep2026.html">September 2026 (Latest)</a>
+<a href="shopify-aug2026.html">August 2026 (frozen archive)</a>
 <a href="shopify-jul2026.html">July 2026 (frozen archive)</a>
 <a href="shopify-annual2026.html">Annual Rollup 2026</a>
 </div>
+<div class="note">August closed at 50 orders, ₹57,746 gross and ₹60,626 total sales across 3,244 sessions, cross-checked three ways to the rupee. Checkout completion fell from 31.85% in July to 22.02% in August — the clearest negative trend of the two closed months.</div>
 </div>
+
+<div class="sub" style="margin-top:24px;">The old flat URLs (amazon.html, flipkart.html, myntra.html, shopify.html) are retired. They remain in the repository as a final snapshot but are no longer updated or linked.</div>
 
 </body>
 </html>
